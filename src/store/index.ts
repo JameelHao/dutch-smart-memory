@@ -75,10 +75,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { words, records, settings } = get();
     const recordArray = Array.from(records.values());
     
+    console.log('[DEBUG] startSession - words count:', words.length);
+    console.log('[DEBUG] startSession - records count:', recordArray.length);
+    console.log('[DEBUG] startSession - dailyNewWords:', settings.dailyNewWords);
+    
     const queue = generateDailyQueue(words, recordArray, {
       dailyNewWords: settings.dailyNewWords,
       maxReviewWords: 20,
     });
+    
+    console.log('[DEBUG] startSession - queue length:', queue.length);
+    if (queue.length > 0) {
+      console.log('[DEBUG] startSession - first word id:', queue[0].wordId);
+    }
     
     const session: LearningSession = {
       id: Date.now().toString(),
@@ -169,10 +178,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
 // 选择器
 export const selectCurrentWord = (state: AppState) => {
-  if (!state.currentSession) return null;
+  if (!state.currentSession) {
+    console.log('[DEBUG] selectCurrentWord - no session');
+    return null;
+  }
+  console.log('[DEBUG] selectCurrentWord - session words:', state.currentSession.words.length);
+  console.log('[DEBUG] selectCurrentWord - currentWordIndex:', state.currentWordIndex);
   const sessionWord = state.currentSession.words[state.currentWordIndex];
-  if (!sessionWord) return null;
-  return state.words.find(w => w.id === sessionWord.wordId) || null;
+  if (!sessionWord) {
+    console.log('[DEBUG] selectCurrentWord - no sessionWord at index');
+    return null;
+  }
+  console.log('[DEBUG] selectCurrentWord - looking for wordId:', sessionWord.wordId);
+  const word = state.words.find(w => w.id === sessionWord.wordId);
+  console.log('[DEBUG] selectCurrentWord - found word:', word ? 'yes' : 'no');
+  return word || null;
 };
 
 export const selectCurrentSessionWord = (state: AppState) => {

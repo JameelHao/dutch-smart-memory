@@ -98,7 +98,9 @@ export default function App() {
     async function bootstrap() {
       // Web 平台不支持 SQLite，直接使用 JSON 数据
       if (Platform.OS === 'web') {
-        console.log('Web platform detected, using JSON data directly');
+        console.log('[DEBUG] Web platform detected');
+        console.log('[DEBUG] wordsData length:', (wordsData as Word[]).length);
+        console.log('[DEBUG] wordsData first item:', JSON.stringify((wordsData as Word[])[0]));
         loadWords(wordsData as Word[]);
         setIsReady(true);
         return;
