@@ -21,6 +21,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 // Data and Store
 import wordsData from './src/data/words.json';
 import { useAppStore } from './src/store';
+import { Platform } from 'react-native';
 import {
   initDatabase,
   importWords as dbImportWords,
@@ -95,8 +96,16 @@ export default function App() {
 
   useEffect(() => {
     async function bootstrap() {
+      // Web 平台不支持 SQLite，直接使用 JSON 数据
+      if (Platform.OS === 'web') {
+        console.log('Web platform detected, using JSON data directly');
+        loadWords(wordsData as Word[]);
+        setIsReady(true);
+        return;
+      }
+
       try {
-        // 1. 初始化数据库
+        // 1. 初始化数据库 (native only)
         await initDatabase();
 
         // 2. 如果数据库为空，从 JSON 导入单词
