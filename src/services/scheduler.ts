@@ -127,14 +127,20 @@ export function generateDailyQueue(
   const dueRecords = getDueWords(records, now);
   const reviewCount = Math.min(dueRecords.length, config.maxReviewWords);
   const selectedReviewRecords = dueRecords.slice(0, reviewCount);
-  
-  // 计算新词数量（基于 40/60 比例）
-  const totalWords = Math.round(reviewCount / REVIEW_WORD_RATIO);
-  const newWordCount = Math.min(
-    config.dailyNewWords,
-    Math.round(totalWords * NEW_WORD_RATIO)
-  );
-  
+
+  // 计算新词数量
+  // 如果有复习词，按 40/60 比例分配；如果没有复习词，直接使用 dailyNewWords
+  let newWordCount: number;
+  if (reviewCount > 0) {
+    const totalWords = Math.round(reviewCount / REVIEW_WORD_RATIO);
+    newWordCount = Math.min(
+      config.dailyNewWords,
+      Math.round(totalWords * NEW_WORD_RATIO)
+    );
+  } else {
+    newWordCount = config.dailyNewWords;
+  }
+
   // 获取新词
   const newWords = getNewWords(allWords, learnedWordIds, newWordCount);
   
