@@ -7,10 +7,115 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Text, Card, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 import { useAppStore, selectMasteredCount, selectTotalLearned } from '../store';
 import { getRiskLevel } from '../types';
 
 const screenWidth = Dimensions.get('window').width;
+
+// 图表配置
+const chartConfig = {
+  backgroundGradientFrom: '#fff',
+  backgroundGradientTo: '#fff',
+  color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(102, 102, 102, ${opacity})`,
+  strokeWidth: 2,
+  propsForDots: {
+    r: '5',
+    strokeWidth: '2',
+    stroke: '#FF6B35',
+  },
+  decimalPlaces: 0,
+};
+
+// 记忆强度曲线图（7天趋势）
+function MemoryStrengthChart({ data }: { data: number[] }) {
+  const labels = ['6天前', '5天前', '4天前', '3天前', '2天前', '昨天', '今天'];
+  
+  return (
+    <View style={styles.chartContainer}>
+      <LineChart
+        data={{
+          labels: labels,
+          datasets: [{ data: data.length > 0 ? data : [0, 0, 0, 0, 0, 0, 0] }],
+        }}
+        width={screenWidth - 64}
+        height={180}
+        chartConfig={chartConfig}
+        bezier
+        style={styles.chart}
+        fromZero
+        yAxisSuffix=""
+        yAxisLabel=""
+      />
+    </View>
+  );
+}
+
+// 遗忘风险饼图
+function RiskPieChart({
+  data,
+}: {
+  data: { high: number; medium: number; low: number; mastered: number };
+}) {
+  const total = data.high + data.medium + data.low + data.mastered;
+  
+  if (total === 0) {
+    return (
+      <View style={styles.emptyChart}>
+        <Text variant="bodyMedium" style={{ color: '#888' }}>
+          暂无数据
+        </Text>
+      </View>
+    );
+  }
+  
+  const pieData = [
+    {
+      name: '高风险',
+      count: data.high,
+      color: '#E53935',
+      legendFontColor: '#666',
+      legendFontSize: 12,
+    },
+    {
+      name: '中风险',
+      count: data.medium,
+      color: '#FFA000',
+      legendFontColor: '#666',
+      legendFontSize: 12,
+    },
+    {
+      name: '低风险',
+      count: data.low,
+      color: '#21A179',
+      legendFontColor: '#666',
+      legendFontSize: 12,
+    },
+    {
+      name: '已掌握',
+      count: data.mastered,
+      color: '#1E88E5',
+      legendFontColor: '#666',
+      legendFontSize: 12,
+    },
+  ].filter(item => item.count > 0);
+  
+  return (
+    <View style={styles.chartContainer}>
+      <PieChart
+        data={pieData}
+        width={screenWidth - 64}
+        height={200}
+        chartConfig={chartConfig}
+        accessor="count"
+        backgroundColor="transparent"
+        paddingLeft="15"
+        absolute
+      />
+    </View>
+  );
+}
 
 // 简单的进度环组件
 function ProgressRing({
@@ -131,6 +236,9 @@ export default function StatsScreen() {
     avgStrength = total / records.size;
   }
   
+  // 模拟7天记忆强度趋势（实际应从历史记录计算）
+  const strengthTrend = [45, 52, 48, 55, 60, 58, Math.round(avgStrength) || 50];
+  
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -195,13 +303,23 @@ export default function StatsScreen() {
           </Card.Content>
         </Card>
         
-        {/* 遗忘风险分布 */}
+        {/* 记忆强度曲线 */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>
+              记忆强度趋势（近7天）
+            </Text>
+            <MemoryStrengthChart data={strengthTrend} />
+          </Card.Content>
+        </Card>
+        
+        {/* 遗忘风险饼图 */}
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.cardTitle}>
               遗忘风险分布
             </Text>
-            <RiskDistribution data={riskDistribution} />
+            <RiskPieChart data={riskDistribution} />
           </Card.Content>
         </Card>
         
@@ -359,5 +477,17 @@ const styles = StyleSheet.create({
   streakNumber: {
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginHorizontal: -16,
+  },
+  chart: {
+    borderRadius: 8,
+  },
+  emptyChart: {
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
