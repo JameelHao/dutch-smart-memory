@@ -26,10 +26,8 @@
       "package": "com.dutchsmartmemory.app"
     },
     "web": {
-      "favicon": "./src/assets/favicon.png"
-    },
-    "plugins": [
-      "expo-speech"
-    ]
+      "favicon": "./src/assets/favicon.png",
+      "bundler": "metro"
+    }
   }
 }
