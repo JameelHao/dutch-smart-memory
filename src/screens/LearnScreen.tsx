@@ -118,8 +118,10 @@ export default function LearnScreen({ navigation }: any) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   
   // 模拟选项（实际应从单词库生成）
+  // 如果没有中文翻译，使用占位符
+  const correctChinese = currentWord?.chinese || '（点击查看）';
   const mockOptions = currentWord
-    ? [currentWord.chinese, '你好', '谢谢', '再见']
+    ? [correctChinese, '你好', '谢谢', '再见']
     : [];
   
   useEffect(() => {
@@ -130,7 +132,7 @@ export default function LearnScreen({ navigation }: any) {
   
   const handleSelectAnswer = (answer: string) => {
     if (!currentWord) return;
-    const correct = answer === currentWord.chinese;
+    const correct = answer === correctChinese;
     setIsCorrect(correct);
     setSelectedAnswer(answer);
     setShowAnswer(true);
@@ -236,18 +238,22 @@ export default function LearnScreen({ navigation }: any) {
             {currentWord.dutch}
           </Text>
           
-          <Text variant="bodyMedium" style={styles.pronunciation}>
-            {currentWord.pronunciation}
-          </Text>
+          {currentWord.pronunciation && (
+            <Text variant="bodyMedium" style={styles.pronunciation}>
+              {currentWord.pronunciation}
+            </Text>
+          )}
           
           {showAnswer && (
             <>
               <Text variant="titleLarge" style={styles.chineseWord}>
-                {currentWord.chinese}
+                {currentWord.chinese || '（暂无翻译）'}
               </Text>
-              <Text variant="bodySmall" style={styles.example}>
-                {currentWord.example}
-              </Text>
+              {currentWord.example && (
+                <Text variant="bodySmall" style={styles.example}>
+                  {currentWord.example}
+                </Text>
+              )}
             </>
           )}
         </Card.Content>
@@ -259,7 +265,7 @@ export default function LearnScreen({ navigation }: any) {
           <ChoiceOptions
             options={mockOptions}
             onSelect={handleSelectAnswer}
-            correctAnswer={currentWord.chinese}
+            correctAnswer={correctChinese}
             showResult={showAnswer}
           />
         ) : (
