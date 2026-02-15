@@ -359,14 +359,20 @@ const styles = StyleSheet.create({
   },
   assessmentButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    width: '100%',
+    justifyContent: 'space-between',
   },
   assessButton: {
     flex: 1,
     borderRadius: 12,
+    minWidth: 80,
+    paddingHorizontal: 4,
   },
   assessLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    marginHorizontal: 0,
+    paddingHorizontal: 2,
   },
   rememberedButton: {
     backgroundColor: '#21A179',
