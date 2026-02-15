@@ -1,0 +1,363 @@
+/**
+ * 统计页面
+ * 数据可视化展示
+ */
+
+import React from 'react';
+import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { Text, Card, Surface } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppStore, selectMasteredCount, selectTotalLearned } from '../store';
+import { getRiskLevel } from '../types';
+
+const screenWidth = Dimensions.get('window').width;
+
+// 简单的进度环组件
+function ProgressRing({
+  progress,
+  size = 120,
+  strokeWidth = 12,
+  color = '#FF6B35',
+}: {
+  progress: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+}) {
+  const percentage = Math.round(progress * 100);
+  
+  return (
+    <View style={[styles.ring, { width: size, height: size }]}>
+      <View style={[styles.ringOuter, { width: size, height: size, borderWidth: strokeWidth, borderColor: '#e0e0e0' }]}>
+        <View style={styles.ringInner}>
+          <Text variant="headlineMedium" style={styles.ringText}>
+            {percentage}%
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// 风险分布柱状图
+function RiskDistribution({
+  data,
+}: {
+  data: { high: number; medium: number; low: number; mastered: number };
+}) {
+  const total = data.high + data.medium + data.low + data.mastered;
+  
+  const items = [
+    { label: '高风险', count: data.high, color: '#E53935' },
+    { label: '中风险', count: data.medium, color: '#FFA000' },
+    { label: '低风险', count: data.low, color: '#21A179' },
+    { label: '已掌握', count: data.mastered, color: '#1E88E5' },
+  ];
+  
+  return (
+    <View style={styles.riskContainer}>
+      {items.map(item => (
+        <View key={item.label} style={styles.riskItem}>
+          <View style={styles.riskBarContainer}>
+            <View
+              style={[
+                styles.riskBar,
+                {
+                  height: total > 0 ? (item.count / total) * 80 : 0,
+                  backgroundColor: item.color,
+                },
+              ]}
+            />
+          </View>
+          <Text variant="bodySmall" style={styles.riskLabel}>
+            {item.label}
+          </Text>
+          <Text variant="bodySmall" style={styles.riskCount}>
+            {item.count}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// 周趋势图
+function WeeklyTrend({ data }: { data: number[] }) {
+  const days = ['一', '二', '三', '四', '五', '六', '日'];
+  const maxValue = Math.max(...data, 1);
+  
+  return (
+    <View style={styles.trendContainer}>
+      {data.map((value, index) => (
+        <View key={index} style={styles.trendItem}>
+          <View style={styles.trendBarContainer}>
+            <View
+              style={[
+                styles.trendBar,
+                { height: (value / maxValue) * 60 },
+              ]}
+            />
+          </View>
+          <Text variant="bodySmall" style={styles.trendDay}>
+            {days[index]}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export default function StatsScreen() {
+  const records = useAppStore(state => state.records);
+  const masteredCount = useAppStore(selectMasteredCount);
+  const totalLearned = useAppStore(selectTotalLearned);
+  const words = useAppStore(state => state.words);
+  
+  // 计算风险分布
+  const riskDistribution = { high: 0, medium: 0, low: 0, mastered: 0 };
+  records.forEach(record => {
+    const level = getRiskLevel(record.memoryStrength);
+    riskDistribution[level]++;
+  });
+  
+  // 模拟周数据
+  const weeklyData = [5, 8, 12, 6, 10, 15, 8];
+  
+  // 计算平均记忆强度
+  let avgStrength = 0;
+  if (records.size > 0) {
+    let total = 0;
+    records.forEach(r => total += r.memoryStrength);
+    avgStrength = total / records.size;
+  }
+  
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text variant="headlineSmall" style={styles.pageTitle}>
+          学习统计
+        </Text>
+        
+        {/* 总览卡片 */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>
+              学习总览
+            </Text>
+            <View style={styles.overviewRow}>
+              <ProgressRing progress={totalLearned / Math.max(words.length, 1)} />
+              <View style={styles.overviewStats}>
+                <View style={styles.overviewItem}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {masteredCount}
+                  </Text>
+                  <Text variant="bodySmall">已掌握</Text>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {totalLearned}
+                  </Text>
+                  <Text variant="bodySmall">学习中</Text>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text variant="headlineSmall" style={styles.statValue}>
+                    {words.length - totalLearned}
+                  </Text>
+                  <Text variant="bodySmall">待学习</Text>
+                </View>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+        
+        {/* 平均记忆强度 */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>
+              平均记忆强度
+            </Text>
+            <View style={styles.strengthContainer}>
+              <Text variant="displaySmall" style={styles.strengthValue}>
+                {Math.round(avgStrength)}
+              </Text>
+              <Text variant="bodyMedium" style={styles.strengthUnit}>
+                / 100
+              </Text>
+            </View>
+            <View style={styles.strengthBar}>
+              <View
+                style={[
+                  styles.strengthFill,
+                  { width: `${avgStrength}%` },
+                ]}
+              />
+            </View>
+          </Card.Content>
+        </Card>
+        
+        {/* 遗忘风险分布 */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>
+              遗忘风险分布
+            </Text>
+            <RiskDistribution data={riskDistribution} />
+          </Card.Content>
+        </Card>
+        
+        {/* 本周学习趋势 */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>
+              本周学习趋势
+            </Text>
+            <WeeklyTrend data={weeklyData} />
+          </Card.Content>
+        </Card>
+        
+        {/* 连续学习天数 */}
+        <Surface style={styles.streakCard} elevation={1}>
+          <Text variant="displaySmall" style={styles.streakNumber}>
+            🔥 7
+          </Text>
+          <Text variant="bodyMedium">连续学习天数</Text>
+        </Surface>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  pageTitle: {
+    fontWeight: 'bold',
+    color: '#1E3A5F',
+    marginBottom: 16,
+  },
+  card: {
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  cardTitle: {
+    marginBottom: 16,
+    color: '#1E3A5F',
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ring: {
+    marginRight: 24,
+  },
+  ringOuter: {
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringInner: {
+    alignItems: 'center',
+  },
+  ringText: {
+    fontWeight: 'bold',
+    color: '#FF6B35',
+  },
+  overviewStats: {
+    flex: 1,
+  },
+  overviewItem: {
+    marginBottom: 12,
+  },
+  statValue: {
+    fontWeight: 'bold',
+    color: '#1E3A5F',
+  },
+  strengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  strengthValue: {
+    fontWeight: 'bold',
+    color: '#FF6B35',
+  },
+  strengthUnit: {
+    color: '#888',
+    marginLeft: 4,
+  },
+  strengthBar: {
+    height: 12,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  strengthFill: {
+    height: '100%',
+    backgroundColor: '#FF6B35',
+    borderRadius: 6,
+  },
+  riskContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 120,
+  },
+  riskItem: {
+    alignItems: 'center',
+  },
+  riskBarContainer: {
+    height: 80,
+    justifyContent: 'flex-end',
+  },
+  riskBar: {
+    width: 40,
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  riskLabel: {
+    marginTop: 8,
+    color: '#666',
+  },
+  riskCount: {
+    fontWeight: 'bold',
+    color: '#1E3A5F',
+  },
+  trendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 100,
+  },
+  trendItem: {
+    alignItems: 'center',
+  },
+  trendBarContainer: {
+    height: 60,
+    justifyContent: 'flex-end',
+  },
+  trendBar: {
+    width: 24,
+    backgroundColor: '#FF6B35',
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  trendDay: {
+    marginTop: 8,
+    color: '#666',
+  },
+  streakCard: {
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  streakNumber: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+});
