@@ -3,6 +3,9 @@
     "name": "Dutch Smart Memory",
     "slug": "dutch-smart-memory",
     "version": "0.1.0",
+    "experiments": {
+      "baseUrl": "/dutch-smart-memory"
+    },
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "light",
