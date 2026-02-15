@@ -13,6 +13,8 @@ import type {
 import { createNewRecord, updateWordRecord } from '../services/memoryEngine';
 import { generateDailyQueue } from '../services/scheduler';
 import { saveRecord, saveSettings as dbSaveSettings } from '../services/database';
+import { webSaveRecords, webSaveSettings } from '../services/webStorage';
+import { Platform } from 'react-native';
 import type { AnswerResult } from '../types';
 
 interface AppState {
@@ -135,8 +137,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     });
 
-    // 异步持久化到 SQLite
-    saveRecord(updatedRecord).catch(console.warn);
+    // 持久化
+    if (Platform.OS === 'web') {
+      webSaveRecords(newRecords);
+    } else {
+      saveRecord(updatedRecord).catch(console.warn);
+    }
   },
   
   nextWord: () => {
@@ -171,8 +177,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const merged = { ...settings, ...newSettings };
     set({ settings: merged });
 
-    // 异步持久化到 SQLite
-    dbSaveSettings(merged).catch(console.warn);
+    // 持久化
+    if (Platform.OS === 'web') {
+      webSaveSettings(merged);
+    } else {
+      dbSaveSettings(merged).catch(console.warn);
+    }
   },
 }));
 

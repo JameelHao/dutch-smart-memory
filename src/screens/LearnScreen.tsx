@@ -81,7 +81,7 @@ function SelfAssessmentButtons({
           style={[styles.assessButton, styles.rememberedButton]}
           labelStyle={styles.assessLabel}
         >
-          ✅ 记住了
+          记住了
         </Button>
         <Button
           mode="contained"
@@ -89,7 +89,7 @@ function SelfAssessmentButtons({
           style={[styles.assessButton, styles.fuzzyButton]}
           labelStyle={styles.assessLabel}
         >
-          ⚠️ 模糊
+          模糊
         </Button>
         <Button
           mode="contained"
@@ -97,7 +97,7 @@ function SelfAssessmentButtons({
           style={[styles.assessButton, styles.forgottenButton]}
           labelStyle={styles.assessLabel}
         >
-          ❌ 忘了
+          忘了
         </Button>
       </View>
     </View>
@@ -184,7 +184,7 @@ export default function LearnScreen({ navigation }: any) {
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyState}>
           <Text variant="headlineMedium" style={styles.emptyTitle}>
-            🎉 太棒了！
+            太棒了！
           </Text>
           <Text variant="bodyLarge" style={styles.emptySubtitle}>
             今日学习任务完成

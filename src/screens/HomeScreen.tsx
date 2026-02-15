@@ -84,7 +84,7 @@ export default function HomeScreen({ navigation }: any) {
         {/* 提示卡片 */}
         <Card style={styles.tipCard}>
           <Card.Content>
-            <Text variant="titleSmall">💡 学习小贴士</Text>
+            <Text variant="titleSmall">学习小贴士</Text>
             <Text variant="bodySmall" style={styles.tipText}>
               每天坚持学习 10-15 分钟，比一次性学习很久更有效！
               利用碎片时间，养成学习习惯。

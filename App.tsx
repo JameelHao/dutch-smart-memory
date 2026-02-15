@@ -31,6 +31,7 @@ import {
   loadSettings,
 } from './src/services/database';
 import type { Word } from './src/types';
+import { webLoadRecords, webLoadSettings } from './src/services/webStorage';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -96,12 +97,17 @@ export default function App() {
 
   useEffect(() => {
     async function bootstrap() {
-      // Web 平台不支持 SQLite，直接使用 JSON 数据
+      // Web 平台不支持 SQLite，使用 JSON + localStorage
       if (Platform.OS === 'web') {
-        console.log('[DEBUG] Web platform detected');
-        console.log('[DEBUG] wordsData length:', (wordsData as Word[]).length);
-        console.log('[DEBUG] wordsData first item:', JSON.stringify((wordsData as Word[])[0]));
         loadWords(wordsData as Word[]);
+        const savedRecords = webLoadRecords();
+        if (savedRecords.length > 0) {
+          loadRecords(savedRecords);
+        }
+        const savedSettings = webLoadSettings();
+        if (Object.keys(savedSettings).length > 0) {
+          updateSettings(savedSettings);
+        }
         setIsReady(true);
         return;
       }

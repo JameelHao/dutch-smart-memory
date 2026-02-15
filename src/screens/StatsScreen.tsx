@@ -218,7 +218,7 @@ export default function StatsScreen() {
         {/* 连续学习天数 */}
         <Surface style={styles.streakCard} elevation={1}>
           <Text variant="displaySmall" style={styles.streakNumber}>
-            🔥 7
+            7
           </Text>
           <Text variant="bodyMedium">连续学习天数</Text>
         </Surface>
