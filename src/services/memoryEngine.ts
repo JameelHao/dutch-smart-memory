@@ -1,111 +1,87 @@
 /**
  * 记忆算法引擎
- * 核心算法实现：动态难度模型 + 记忆曲线
+ * 基于 SM-2 间隔重复算法的改进版本
  */
 
 import type { UserWordRecord, SelfAssessment, AnswerResult } from '../types';
 
 // 常量配置
-const MIN_INTERVAL_HOURS = 4;
-const MAX_INTERVAL_HOURS = 24 * 30; // 30 天
+const MIN_INTERVAL_DAYS = 1;
+const MAX_INTERVAL_DAYS = 365;
 const MASTERY_THRESHOLD = 85;
-const MASTERY_CONSECUTIVE_DAYS = 5;
-
-interface StrengthUpdate {
-  baseChange: number;
-  intervalMultiplier: number;
-}
-
-const STRENGTH_RULES: Record<string, StrengthUpdate> = {
-  'correct_remembered': { baseChange: 10, intervalMultiplier: 1.5 },
-  'correct_fuzzy': { baseChange: 4, intervalMultiplier: 1.2 },
-  'correct_forgotten': { baseChange: -12, intervalMultiplier: 0 }, // 重置
-  'wrong_remembered': { baseChange: -12, intervalMultiplier: 0 },
-  'wrong_fuzzy': { baseChange: -12, intervalMultiplier: 0 },
-  'wrong_forgotten': { baseChange: -12, intervalMultiplier: 0 },
-};
+const MIN_EASINESS_FACTOR = 1.3;
+const DEFAULT_EASINESS_FACTOR = 2.5;
 
 /**
- * 生成随机因子 (0.8 ~ 1.2)
+ * 将自评结果转换为 SM-2 质量分数 (0-5)
  */
-function getRandomFactor(): number {
-  return 0.8 + Math.random() * 0.4;
+function selfAssessmentToQuality(
+  isCorrect: boolean,
+  selfAssessment: SelfAssessment
+): number {
+  if (!isCorrect) {
+    return selfAssessment === 'forgotten' ? 0 : 1;
+  }
+  
+  switch (selfAssessment) {
+    case 'remembered':
+      return 5; // 完美回忆
+    case 'fuzzy':
+      return 3; // 有些困难但正确
+    case 'forgotten':
+      return 2; // 几乎忘了但最终想起
+    default:
+      return 3;
+  }
+}
+
+/**
+ * SM-2 算法：计算新的易度因子
+ */
+function calculateNewEasinessFactor(
+  currentEF: number,
+  quality: number
+): number {
+  // EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+  const newEF = currentEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  return Math.max(MIN_EASINESS_FACTOR, newEF);
+}
+
+/**
+ * 计算新的复习间隔（天）
+ */
+function calculateNewInterval(
+  currentInterval: number,
+  reviewCount: number,
+  easinessFactor: number,
+  quality: number
+): number {
+  if (quality < 3) {
+    // 答错，重置间隔
+    return MIN_INTERVAL_DAYS;
+  }
+  
+  if (reviewCount === 0) {
+    return 1;
+  } else if (reviewCount === 1) {
+    return 6;
+  } else {
+    const newInterval = currentInterval * easinessFactor;
+    return Math.min(MAX_INTERVAL_DAYS, Math.round(newInterval));
+  }
 }
 
 /**
  * 计算记忆强度变化
  */
-export function calculateStrengthChange(
-  isCorrect: boolean,
-  selfAssessment: SelfAssessment,
-  currentStrength: number,
-  difficultyCoefficient: number
-): number {
-  const key = `${isCorrect ? 'correct' : 'wrong'}_${selfAssessment}`;
-  const rule = STRENGTH_RULES[key] || STRENGTH_RULES['wrong_forgotten'];
+function calculateStrengthChange(quality: number, currentStrength: number): number {
+  // 根据答题质量调整记忆强度
+  const baseChange = (quality - 2.5) * 8; // -20 to +20
   
-  const baseChange = rule.baseChange;
-  const randomFactor = getRandomFactor();
+  // 低强度时增长更快，高强度时增长更慢
+  const factor = currentStrength < 50 ? 1.2 : 0.8;
   
-  // 强度变化 = 基础增量 × 随机因子 / 难度系数
-  const change = (baseChange * randomFactor) / difficultyCoefficient;
-  
-  return Math.round(change);
-}
-
-/**
- * 计算新的复习间隔
- */
-export function calculateNewInterval(
-  isCorrect: boolean,
-  selfAssessment: SelfAssessment,
-  currentInterval: number,
-  memoryStrength: number
-): number {
-  const key = `${isCorrect ? 'correct' : 'wrong'}_${selfAssessment}`;
-  const rule = STRENGTH_RULES[key] || STRENGTH_RULES['wrong_forgotten'];
-  
-  if (rule.intervalMultiplier === 0) {
-    // 重置间隔
-    return MIN_INTERVAL_HOURS;
-  }
-  
-  // 新间隔 = 当前间隔 × 倍数因子 × (记忆强度/100 + 0.5)
-  const strengthFactor = memoryStrength / 100 + 0.5;
-  const newInterval = currentInterval * rule.intervalMultiplier * strengthFactor;
-  
-  return Math.min(MAX_INTERVAL_HOURS, Math.max(MIN_INTERVAL_HOURS, Math.round(newInterval)));
-}
-
-/**
- * 更新难度系数
- */
-export function updateDifficultyCoefficient(
-  currentCoefficient: number,
-  isCorrect: boolean,
-  consecutiveCorrect: number
-): number {
-  if (!isCorrect) {
-    // 答错增加难度
-    return Math.min(3.0, currentCoefficient + 0.2);
-  }
-  
-  if (consecutiveCorrect >= 3) {
-    // 连续3次答对降低难度
-    return Math.max(1.0, currentCoefficient - 0.1);
-  }
-  
-  return currentCoefficient;
-}
-
-/**
- * 判断是否达到掌握标准
- */
-export function checkMastery(record: UserWordRecord): boolean {
-  return (
-    record.memoryStrength >= MASTERY_THRESHOLD &&
-    record.consecutiveCorrectDays >= MASTERY_CONSECUTIVE_DAYS
-  );
+  return Math.round(baseChange * factor);
 }
 
 /**
@@ -117,78 +93,54 @@ export function updateWordRecord(
 ): UserWordRecord {
   const { isCorrect, selfAssessment, answeredAt } = result;
   
-  // 计算新的记忆强度
-  const strengthChange = calculateStrengthChange(
-    isCorrect,
-    selfAssessment,
-    record.memoryStrength,
-    record.difficultyCoefficient
+  // 计算质量分数
+  const quality = selfAssessmentToQuality(isCorrect, selfAssessment);
+  
+  // 更新易度因子
+  const newEF = calculateNewEasinessFactor(record.easinessFactor, quality);
+  
+  // 更新复习次数
+  const newReviewCount = quality >= 3 ? record.reviewCount + 1 : 0;
+  
+  // 计算新间隔
+  const newInterval = calculateNewInterval(
+    record.intervalDays,
+    newReviewCount,
+    newEF,
+    quality
   );
+  
+  // 计算记忆强度变化
+  const strengthChange = calculateStrengthChange(quality, record.memoryStrength);
   const newStrength = Math.min(100, Math.max(0, record.memoryStrength + strengthChange));
   
-  // 计算新的复习间隔
-  const newInterval = calculateNewInterval(
-    isCorrect,
-    selfAssessment,
-    record.currentInterval,
-    newStrength
-  );
-  
-  // 更新连续答对天数
-  const lastDate = new Date(record.lastReviewTime).toDateString();
-  const currentDate = new Date(answeredAt).toDateString();
-  const isNewDay = lastDate !== currentDate;
-  
-  let consecutiveCorrectDays = record.consecutiveCorrectDays;
-  if (isCorrect && isNewDay) {
-    consecutiveCorrectDays += 1;
-  } else if (!isCorrect) {
-    consecutiveCorrectDays = 0;
-  }
-  
-  // 更新难度系数
-  const newDifficulty = updateDifficultyCoefficient(
-    record.difficultyCoefficient,
-    isCorrect,
-    consecutiveCorrectDays
-  );
+  // 更新正确次数
+  const newCorrectCount = isCorrect ? record.correctCount + 1 : record.correctCount;
   
   // 计算下次复习时间
-  const nextReviewTime = answeredAt + newInterval * 60 * 60 * 1000;
-  
-  // 更新错误次数
-  const errorCount = isCorrect ? record.errorCount : record.errorCount + 1;
+  const nextReviewTime = answeredAt + newInterval * 24 * 60 * 60 * 1000;
   
   // 确定状态
   let status = record.status;
   if (status === 'new') {
     status = 'learning';
-  } else if (status === 'learning' && newStrength > 50) {
+  } else if (newStrength >= MASTERY_THRESHOLD && newReviewCount >= 5) {
+    status = 'mastered';
+  } else if (newStrength >= 50) {
     status = 'reviewing';
   }
   
-  const updated: UserWordRecord = {
-    ...record,
+  return {
+    wordId: record.wordId,
     memoryStrength: newStrength,
-    difficultyCoefficient: newDifficulty,
-    currentInterval: newInterval,
-    consecutiveCorrectDays,
-    errorCount,
+    reviewCount: newReviewCount,
+    correctCount: newCorrectCount,
+    intervalDays: newInterval,
+    easinessFactor: newEF,
     nextReviewTime,
     lastReviewTime: answeredAt,
     status,
-    updatedAt: answeredAt,
   };
-  
-  // 检查是否掌握
-  if (checkMastery(updated)) {
-    updated.status = 'mastered';
-    // 掌握后设置低频复习间隔
-    updated.currentInterval = 24 * 7; // 7 天
-    updated.nextReviewTime = answeredAt + 7 * 24 * 60 * 60 * 1000;
-  }
-  
-  return updated;
 }
 
 /**
@@ -199,15 +151,13 @@ export function createNewRecord(wordId: string): UserWordRecord {
   return {
     wordId,
     memoryStrength: 0,
-    difficultyCoefficient: 1.5, // 初始难度中等
-    currentInterval: MIN_INTERVAL_HOURS,
-    consecutiveCorrectDays: 0,
-    errorCount: 0,
+    reviewCount: 0,
+    correctCount: 0,
+    intervalDays: MIN_INTERVAL_DAYS,
+    easinessFactor: DEFAULT_EASINESS_FACTOR,
     nextReviewTime: now,
     lastReviewTime: now,
     status: 'new',
-    createdAt: now,
-    updatedAt: now,
   };
 }
 
@@ -218,7 +168,7 @@ export function createNewRecord(wordId: string): UserWordRecord {
 export function calculateForgetRisk(record: UserWordRecord): number {
   const now = Date.now();
   const timeSinceReview = now - record.lastReviewTime;
-  const intervalMs = record.currentInterval * 60 * 60 * 1000;
+  const intervalMs = record.intervalDays * 24 * 60 * 60 * 1000;
   
   // 超时比例
   const overdueRatio = Math.max(0, (timeSinceReview - intervalMs) / intervalMs);
@@ -230,4 +180,43 @@ export function calculateForgetRisk(record: UserWordRecord): number {
   const totalRisk = baseRisk + overdueRatio * 30;
   
   return Math.min(100, Math.max(0, Math.round(totalRisk)));
+}
+
+/**
+ * 判断单词是否需要复习
+ */
+export function isDueForReview(record: UserWordRecord): boolean {
+  return record.nextReviewTime <= Date.now();
+}
+
+/**
+ * 获取记忆状态描述
+ */
+export function getMemoryStatusText(strength: number): string {
+  if (strength >= 85) return '已掌握';
+  if (strength >= 60) return '熟悉';
+  if (strength >= 30) return '学习中';
+  return '需加强';
+}
+
+/**
+ * 获取下次复习时间的友好描述
+ */
+export function getNextReviewText(nextReviewTime: number): string {
+  const now = Date.now();
+  const diff = nextReviewTime - now;
+  
+  if (diff <= 0) return '现在';
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) {
+    return `${days} 天后`;
+  } else if (hours > 0) {
+    return `${hours} 小时后`;
+  } else {
+    const minutes = Math.floor(diff / (1000 * 60));
+    return `${minutes} 分钟后`;
+  }
 }

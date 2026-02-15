@@ -3,7 +3,7 @@
  * 荷兰语智能记忆系统
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,6 +16,10 @@ import HomeScreen from './src/screens/HomeScreen';
 import LearnScreen from './src/screens/LearnScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+
+// Data and Store
+import { sampleWords } from './src/assets/words';
+import { useAppStore } from './src/store';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -74,6 +78,13 @@ function MainTabs() {
 }
 
 export default function App() {
+  const loadWords = useAppStore(state => state.loadWords);
+  
+  // 在应用启动时加载单词数据
+  useEffect(() => {
+    loadWords(sampleWords);
+  }, [loadWords]);
+
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>

@@ -6,11 +6,13 @@ export interface Word {
   dutch: string;
   chinese: string;
   pronunciation: string;
+  partOfSpeech?: string; // 词性 (noun, verb, adj, etc.)
   example: string;
   exampleTranslation: string;
   audio?: string;
   category: WordCategory;
   level: LanguageLevel;
+  source?: string; // 来源 (pdf_import, manual, etc.)
 }
 
 export type LanguageLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
@@ -35,15 +37,13 @@ export type WordCategory =
 export interface UserWordRecord {
   wordId: string;
   memoryStrength: number; // 0-100
-  difficultyCoefficient: number; // 1.0-3.0
-  currentInterval: number; // 小时
-  consecutiveCorrectDays: number;
-  errorCount: number;
+  reviewCount: number; // 复习次数
+  correctCount: number; // 正确次数
+  intervalDays: number; // 当前复习间隔（天）
+  easinessFactor: number; // SM-2 易度因子 (1.3-2.5)
   nextReviewTime: number; // timestamp
   lastReviewTime: number; // timestamp
   status: WordStatus;
-  createdAt: number;
-  updatedAt: number;
 }
 
 export type WordStatus = 'new' | 'learning' | 'reviewing' | 'mastered';
@@ -75,12 +75,11 @@ export interface AnswerResult {
  */
 export interface DailyStats {
   date: string; // YYYY-MM-DD
-  newWordsLearned: number;
+  wordsLearned: number;
   wordsReviewed: number;
-  correctCount: number;
-  wrongCount: number;
-  totalTimeSpent: number; // 分钟
-  averageStrength: number;
+  correctRate: number; // 0-1
+  studyDuration: number; // 秒
+  streakDays: number;
 }
 
 /**
