@@ -3,7 +3,7 @@
  * 核心学习交互界面
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Button, Card, IconButton, ProgressBar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -104,6 +104,16 @@ function SelfAssessmentButtons({
   );
 }
 
+// Fisher-Yates 洗牌算法
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export default function LearnScreen({ navigation }: any) {
   const currentWord = useAppStore(selectCurrentWord);
   const sessionWord = useAppStore(selectCurrentSessionWord);
@@ -112,17 +122,38 @@ export default function LearnScreen({ navigation }: any) {
   const startSession = useAppStore(state => state.startSession);
   const submitAnswer = useAppStore(state => state.submitAnswer);
   const nextWord = useAppStore(state => state.nextWord);
+  const allWords = useAppStore(state => state.words);
   
   const [showAnswer, setShowAnswer] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   
-  // 模拟选项（实际应从单词库生成）
-  // 如果没有中文翻译，使用占位符
+  // 正确答案
   const correctChinese = currentWord?.chinese || '（点击查看）';
-  const mockOptions = currentWord
-    ? [correctChinese, '你好', '谢谢', '再见']
-    : [];
+  
+  // 生成选择题选项：从词库随机抽取3个干扰项，然后打乱顺序
+  const quizOptions = useMemo(() => {
+    if (!currentWord) return [];
+    
+    // 获取所有有中文翻译的单词（排除当前单词）
+    const otherWords = allWords.filter(
+      w => w.id !== currentWord.id && w.chinese && w.chinese.trim() !== ''
+    );
+    
+    // 随机抽取3个作为干扰项
+    const shuffledOthers = shuffleArray(otherWords);
+    const distractors = shuffledOthers.slice(0, 3).map(w => w.chinese);
+    
+    // 如果干扰项不足3个，用备用选项填充
+    const fallbackOptions = ['（其他）', '（不确定）', '（跳过）'];
+    while (distractors.length < 3) {
+      distractors.push(fallbackOptions[distractors.length]);
+    }
+    
+    // 将正确答案和干扰项合并并打乱顺序
+    const allOptions = [correctChinese, ...distractors];
+    return shuffleArray(allOptions);
+  }, [currentWord?.id, correctChinese, allWords]);
   
   useEffect(() => {
     if (!currentSession) {
@@ -263,7 +294,7 @@ export default function LearnScreen({ navigation }: any) {
       <View style={styles.answerSection}>
         {!showAnswer ? (
           <ChoiceOptions
-            options={mockOptions}
+            options={quizOptions}
             onSelect={handleSelectAnswer}
             correctAnswer={correctChinese}
             showResult={showAnswer}
@@ -346,9 +377,12 @@ const styles = StyleSheet.create({
   },
   correctButton: {
     backgroundColor: '#21A179',
+    borderColor: '#21A179',
   },
   wrongButton: {
+    backgroundColor: '#FFEBEE',
     borderColor: '#E53935',
+    borderWidth: 2,
   },
   assessmentContainer: {
     alignItems: 'center',
