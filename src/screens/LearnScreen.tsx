@@ -3,9 +3,10 @@
  * 核心学习交互界面
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Button, Card, IconButton, ProgressBar } from 'react-native-paper';
+import * as Speech from 'expo-speech';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useAppStore,
@@ -187,6 +188,21 @@ export default function LearnScreen({ navigation }: any) {
     nextWord();
   };
   
+  // 播放荷兰语发音
+  const speakDutch = useCallback(async () => {
+    if (!currentWord?.dutch) return;
+    
+    // 停止当前播放
+    await Speech.stop();
+    
+    // 播放荷兰语，优先女声，语速稍慢
+    Speech.speak(currentWord.dutch, {
+      language: 'nl-NL',
+      rate: 0.85,
+      pitch: 1.0,
+    });
+  }, [currentWord?.dutch]);
+  
   // 无会话时显示开始按钮
   if (!currentSession) {
     return (
@@ -265,9 +281,18 @@ export default function LearnScreen({ navigation }: any) {
             </View>
           )}
           
-          <Text variant="displayMedium" style={styles.dutchWord}>
-            {currentWord.dutch}
-          </Text>
+          <View style={styles.dutchWordRow}>
+            <Text variant="displayMedium" style={styles.dutchWord}>
+              {currentWord.dutch}
+            </Text>
+            <IconButton
+              icon="volume-high"
+              size={28}
+              onPress={speakDutch}
+              style={styles.speakButton}
+              iconColor="#1E88E5"
+            />
+          </View>
           
           {currentWord.pronunciation && (
             <Text variant="bodyMedium" style={styles.pronunciation}>
@@ -341,10 +366,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  dutchWordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dutchWord: {
     fontWeight: 'bold',
     color: '#1E3A5F',
     textAlign: 'center',
+  },
+  speakButton: {
+    marginLeft: 4,
+    marginTop: -4,
   },
   pronunciation: {
     color: '#888',
