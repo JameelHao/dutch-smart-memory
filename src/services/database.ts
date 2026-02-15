@@ -1,20 +1,37 @@
 /**
  * SQLite 数据库服务
  * 负责单词和学习记录的持久化存储
+ *
+ * 表结构：
+ * - words:             从 PDF 导入的单词数据（含冠词、频率排名）
+ * - learning_progress: 用户学习进度 (SM-2 算法参数)
+ * - settings:          用户设置 (key-value)
+ * - daily_stats:       每日学习统计
  */
 
-import * as SQLite from 'expo-sqlite';
-import type { Word, UserWordRecord, DailyStats } from '../types';
+import {
+  openDatabaseAsync,
+  type SQLiteDatabase,
+} from 'expo-sqlite/next';
+import type {
+  Word,
+  UserWordRecord,
+  UserSettings,
+  DailyStats,
+  WordCategory,
+  LanguageLevel,
+  WordStatus,
+} from '../types';
 
 const DB_NAME = 'dutch_smart_memory.db';
 
-let db: SQLite.SQLiteDatabase | null = null;
+let db: SQLiteDatabase | null = null;
 
 /**
- * 初始化数据库连接
+ * 初始化数据库连接并建表
  */
 export async function initDatabase(): Promise<void> {
-  db = await SQLite.openDatabaseAsync(DB_NAME);
+  db = await openDatabaseAsync(DB_NAME);
   await createTables();
 }
 
@@ -29,42 +46,48 @@ async function createTables(): Promise<void> {
     CREATE TABLE IF NOT EXISTS words (
       id TEXT PRIMARY KEY,
       dutch TEXT NOT NULL,
-      chinese TEXT NOT NULL,
-      pronunciation TEXT,
+      article TEXT,
+      chinese TEXT DEFAULT '',
+      pronunciation TEXT DEFAULT '',
       part_of_speech TEXT,
-      example TEXT,
-      example_translation TEXT,
-      category TEXT,
-      level TEXT,
+      example TEXT DEFAULT '',
+      example_translation TEXT DEFAULT '',
       audio_url TEXT,
-      created_at INTEGER DEFAULT (strftime('%s', 'now')),
-      source TEXT DEFAULT 'manual'
+      category TEXT DEFAULT 'other',
+      level TEXT DEFAULT 'A1',
+      frequency_rank INTEGER,
+      source TEXT DEFAULT 'pdf_import'
     );
   `);
 
   // 用户学习记录表
   await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS user_records (
-      id TEXT PRIMARY KEY,
-      word_id TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS learning_progress (
+      word_id TEXT PRIMARY KEY,
       memory_strength REAL DEFAULT 0,
       review_count INTEGER DEFAULT 0,
       correct_count INTEGER DEFAULT 0,
-      last_review_time INTEGER,
-      next_review_time INTEGER,
       interval_days REAL DEFAULT 1,
       easiness_factor REAL DEFAULT 2.5,
+      next_review_time INTEGER NOT NULL,
+      last_review_time INTEGER NOT NULL,
       status TEXT DEFAULT 'new',
-      created_at INTEGER DEFAULT (strftime('%s', 'now')),
       FOREIGN KEY (word_id) REFERENCES words(id)
+    );
+  `);
+
+  // 用户设置表 (key-value)
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
   `);
 
   // 每日统计表
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS daily_stats (
-      id TEXT PRIMARY KEY,
-      date TEXT NOT NULL UNIQUE,
+      date TEXT PRIMARY KEY,
       words_learned INTEGER DEFAULT 0,
       words_reviewed INTEGER DEFAULT 0,
       correct_rate REAL DEFAULT 0,
@@ -73,61 +96,60 @@ async function createTables(): Promise<void> {
     );
   `);
 
-  // 创建索引
+  // 索引
   await db.execAsync(`
-    CREATE INDEX IF NOT EXISTS idx_words_category ON words(category);
     CREATE INDEX IF NOT EXISTS idx_words_level ON words(level);
-    CREATE INDEX IF NOT EXISTS idx_records_word_id ON user_records(word_id);
-    CREATE INDEX IF NOT EXISTS idx_records_next_review ON user_records(next_review_time);
+    CREATE INDEX IF NOT EXISTS idx_words_frequency ON words(frequency_rank);
+    CREATE INDEX IF NOT EXISTS idx_progress_status ON learning_progress(status);
+    CREATE INDEX IF NOT EXISTS idx_progress_next_review ON learning_progress(next_review_time);
     CREATE INDEX IF NOT EXISTS idx_stats_date ON daily_stats(date);
   `);
 }
 
-/**
- * 插入或更新单词
- */
-export async function upsertWord(word: Word): Promise<void> {
-  if (!db) throw new Error('Database not initialized');
-
-  await db.runAsync(
-    `INSERT OR REPLACE INTO words 
-     (id, dutch, chinese, pronunciation, part_of_speech, example, example_translation, category, level, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      word.id,
-      word.dutch,
-      word.chinese,
-      word.pronunciation || null,
-      word.partOfSpeech || null,
-      word.example || null,
-      word.exampleTranslation || null,
-      word.category || null,
-      word.level || null,
-      'pdf_import',
-    ]
-  );
-}
+// ==================== Words ====================
 
 /**
- * 批量插入单词
+ * 批量导入单词（upsert）
  */
-export async function insertWords(words: Word[]): Promise<number> {
+export async function importWords(words: Word[]): Promise<number> {
   if (!db) throw new Error('Database not initialized');
 
-  let inserted = 0;
-  
-  await db.withTransactionAsync(async () => {
-    for (const word of words) {
-      try {
-        await upsertWord(word);
-        inserted++;
-      } catch (error) {
-        console.warn(`Failed to insert word: ${word.dutch}`, error);
+  let imported = 0;
+
+  // 分批处理，每批 100 个
+  const batchSize = 100;
+  for (let i = 0; i < words.length; i += batchSize) {
+    const batch = words.slice(i, i + batchSize);
+
+    await db.withTransactionAsync(async () => {
+      for (const word of batch) {
+        await db!.runAsync(
+          `INSERT OR REPLACE INTO words
+           (id, dutch, article, chinese, pronunciation, part_of_speech,
+            example, example_translation, audio_url, category, level, frequency_rank, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            word.id,
+            word.dutch,
+            word.article ?? null,
+            word.chinese || '',
+            word.pronunciation || '',
+            word.partOfSpeech ?? null,
+            word.example || '',
+            word.exampleTranslation || '',
+            word.audio ?? null,
+            word.category,
+            word.level,
+            word.frequencyRank ?? null,
+            word.source || 'pdf_import',
+          ]
+        );
+        imported++;
       }
-    }
-  });
+    });
+  }
 
-  return inserted;
+  return imported;
 }
 
 /**
@@ -136,52 +158,25 @@ export async function insertWords(words: Word[]): Promise<number> {
 export async function getAllWords(): Promise<Word[]> {
   if (!db) throw new Error('Database not initialized');
 
-  const result = await db.getAllAsync<{
-    id: string;
-    dutch: string;
-    chinese: string;
-    pronunciation: string | null;
-    part_of_speech: string | null;
-    example: string | null;
-    example_translation: string | null;
-    category: string | null;
-    level: string | null;
-  }>('SELECT * FROM words ORDER BY created_at DESC');
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    'SELECT * FROM words ORDER BY frequency_rank ASC'
+  );
 
-  return result.map(row => ({
-    id: row.id,
-    dutch: row.dutch,
-    chinese: row.chinese,
-    pronunciation: row.pronunciation || '',
-    partOfSpeech: row.part_of_speech || undefined,
-    example: row.example || '',
-    exampleTranslation: row.example_translation || '',
-    category: row.category || 'other',
-    level: row.level || 'A1',
-  }));
+  return rows.map(rowToWord);
 }
 
 /**
- * 按分类获取单词
+ * 按级别获取单词
  */
-export async function getWordsByCategory(category: string): Promise<Word[]> {
+export async function getWordsByLevel(level: LanguageLevel): Promise<Word[]> {
   if (!db) throw new Error('Database not initialized');
 
-  const result = await db.getAllAsync<any>(
-    'SELECT * FROM words WHERE category = ? ORDER BY dutch',
-    [category]
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    'SELECT * FROM words WHERE level = ? ORDER BY frequency_rank ASC',
+    [level]
   );
 
-  return result.map(row => ({
-    id: row.id,
-    dutch: row.dutch,
-    chinese: row.chinese,
-    pronunciation: row.pronunciation || '',
-    example: row.example || '',
-    exampleTranslation: row.example_translation || '',
-    category: row.category || 'other',
-    level: row.level || 'A1',
-  }));
+  return rows.map(rowToWord);
 }
 
 /**
@@ -194,55 +189,201 @@ export async function getWordCount(): Promise<number> {
     'SELECT COUNT(*) as count FROM words'
   );
 
-  return result?.count || 0;
+  return result?.count ?? 0;
 }
 
+function rowToWord(row: Record<string, unknown>): Word {
+  return {
+    id: row.id as string,
+    dutch: row.dutch as string,
+    article: row.article as string | null,
+    chinese: (row.chinese as string) || '',
+    pronunciation: (row.pronunciation as string) || '',
+    partOfSpeech: row.part_of_speech as string | undefined,
+    example: (row.example as string) || '',
+    exampleTranslation: (row.example_translation as string) || '',
+    audio: row.audio_url as string | undefined,
+    category: ((row.category as string) || 'other') as WordCategory,
+    level: ((row.level as string) || 'A1') as LanguageLevel,
+    frequencyRank: row.frequency_rank as number | undefined,
+    source: row.source as string | undefined,
+  };
+}
+
+// ==================== Learning Progress ====================
+
 /**
- * 保存用户学习记录
+ * 保存学习记录（upsert）
  */
-export async function saveUserRecord(record: UserWordRecord): Promise<void> {
+export async function saveRecord(record: UserWordRecord): Promise<void> {
   if (!db) throw new Error('Database not initialized');
 
   await db.runAsync(
-    `INSERT OR REPLACE INTO user_records 
-     (id, word_id, memory_strength, review_count, correct_count, 
-      last_review_time, next_review_time, interval_days, easiness_factor, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO learning_progress
+     (word_id, memory_strength, review_count, correct_count, interval_days,
+      easiness_factor, next_review_time, last_review_time, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      record.wordId, // 使用 wordId 作为 id
       record.wordId,
       record.memoryStrength,
       record.reviewCount,
       record.correctCount,
-      record.lastReviewTime,
-      record.nextReviewTime,
       record.intervalDays,
       record.easinessFactor,
+      record.nextReviewTime,
+      record.lastReviewTime,
       record.status,
     ]
   );
 }
 
 /**
- * 获取所有用户记录
+ * 批量保存学习记录
  */
-export async function getAllUserRecords(): Promise<UserWordRecord[]> {
+export async function saveRecords(records: UserWordRecord[]): Promise<void> {
   if (!db) throw new Error('Database not initialized');
 
-  const result = await db.getAllAsync<any>('SELECT * FROM user_records');
-
-  return result.map(row => ({
-    wordId: row.word_id,
-    memoryStrength: row.memory_strength,
-    reviewCount: row.review_count,
-    correctCount: row.correct_count,
-    lastReviewTime: row.last_review_time,
-    nextReviewTime: row.next_review_time,
-    intervalDays: row.interval_days,
-    easinessFactor: row.easiness_factor,
-    status: row.status,
-  }));
+  await db.withTransactionAsync(async () => {
+    for (const record of records) {
+      await db!.runAsync(
+        `INSERT OR REPLACE INTO learning_progress
+         (word_id, memory_strength, review_count, correct_count, interval_days,
+          easiness_factor, next_review_time, last_review_time, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          record.wordId,
+          record.memoryStrength,
+          record.reviewCount,
+          record.correctCount,
+          record.intervalDays,
+          record.easinessFactor,
+          record.nextReviewTime,
+          record.lastReviewTime,
+          record.status,
+        ]
+      );
+    }
+  });
 }
+
+/**
+ * 获取所有学习记录
+ */
+export async function getAllRecords(): Promise<UserWordRecord[]> {
+  if (!db) throw new Error('Database not initialized');
+
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    'SELECT * FROM learning_progress'
+  );
+
+  return rows.map(rowToRecord);
+}
+
+/**
+ * 获取到期需要复习的记录
+ */
+export async function getDueRecords(now: number = Date.now()): Promise<UserWordRecord[]> {
+  if (!db) throw new Error('Database not initialized');
+
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM learning_progress
+     WHERE status != 'new' AND next_review_time <= ?
+     ORDER BY next_review_time ASC`,
+    [now]
+  );
+
+  return rows.map(rowToRecord);
+}
+
+/**
+ * 获取学习进度统计
+ */
+export async function getProgressStats(): Promise<{
+  total: number;
+  learning: number;
+  reviewing: number;
+  mastered: number;
+}> {
+  if (!db) throw new Error('Database not initialized');
+
+  const result = await db.getFirstAsync<{
+    total: number;
+    learning: number;
+    reviewing: number;
+    mastered: number;
+  }>(
+    `SELECT
+       COUNT(*) as total,
+       SUM(CASE WHEN status = 'learning' THEN 1 ELSE 0 END) as learning,
+       SUM(CASE WHEN status = 'reviewing' THEN 1 ELSE 0 END) as reviewing,
+       SUM(CASE WHEN status = 'mastered' THEN 1 ELSE 0 END) as mastered
+     FROM learning_progress`
+  );
+
+  return {
+    total: result?.total ?? 0,
+    learning: result?.learning ?? 0,
+    reviewing: result?.reviewing ?? 0,
+    mastered: result?.mastered ?? 0,
+  };
+}
+
+function rowToRecord(row: Record<string, unknown>): UserWordRecord {
+  return {
+    wordId: row.word_id as string,
+    memoryStrength: row.memory_strength as number,
+    reviewCount: row.review_count as number,
+    correctCount: row.correct_count as number,
+    intervalDays: row.interval_days as number,
+    easinessFactor: row.easiness_factor as number,
+    nextReviewTime: row.next_review_time as number,
+    lastReviewTime: row.last_review_time as number,
+    status: row.status as WordStatus,
+  };
+}
+
+// ==================== Settings ====================
+
+/**
+ * 保存设置
+ */
+export async function saveSettings(settings: UserSettings): Promise<void> {
+  if (!db) throw new Error('Database not initialized');
+
+  await db.withTransactionAsync(async () => {
+    for (const [key, value] of Object.entries(settings)) {
+      const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+      await db!.runAsync(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        [key, serialized]
+      );
+    }
+  });
+}
+
+/**
+ * 加载设置
+ */
+export async function loadSettings(): Promise<Partial<UserSettings>> {
+  if (!db) throw new Error('Database not initialized');
+
+  const rows = await db.getAllAsync<{ key: string; value: string }>(
+    'SELECT key, value FROM settings'
+  );
+
+  const settings: Record<string, unknown> = {};
+  for (const row of rows) {
+    try {
+      settings[row.key] = JSON.parse(row.value);
+    } catch {
+      settings[row.key] = row.value;
+    }
+  }
+
+  return settings as Partial<UserSettings>;
+}
+
+// ==================== Daily Stats ====================
 
 /**
  * 保存每日统计
@@ -250,15 +391,12 @@ export async function getAllUserRecords(): Promise<UserWordRecord[]> {
 export async function saveDailyStats(stats: DailyStats): Promise<void> {
   if (!db) throw new Error('Database not initialized');
 
-  const date = new Date(stats.date).toISOString().split('T')[0];
-
   await db.runAsync(
-    `INSERT OR REPLACE INTO daily_stats 
-     (id, date, words_learned, words_reviewed, correct_rate, study_duration, streak_days)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO daily_stats
+     (date, words_learned, words_reviewed, correct_rate, study_duration, streak_days)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
-      date,
-      date,
+      stats.date,
       stats.wordsLearned,
       stats.wordsReviewed,
       stats.correctRate,
@@ -275,7 +413,7 @@ export async function getTodayStats(): Promise<DailyStats | null> {
   if (!db) throw new Error('Database not initialized');
 
   const today = new Date().toISOString().split('T')[0];
-  const result = await db.getFirstAsync<any>(
+  const result = await db.getFirstAsync<Record<string, unknown>>(
     'SELECT * FROM daily_stats WHERE date = ?',
     [today]
   );
@@ -283,27 +421,37 @@ export async function getTodayStats(): Promise<DailyStats | null> {
   if (!result) return null;
 
   return {
-    date: result.date,
-    wordsLearned: result.words_learned,
-    wordsReviewed: result.words_reviewed,
-    correctRate: result.correct_rate,
-    studyDuration: result.study_duration,
-    streakDays: result.streak_days,
+    date: result.date as string,
+    wordsLearned: result.words_learned as number,
+    wordsReviewed: result.words_reviewed as number,
+    correctRate: result.correct_rate as number,
+    studyDuration: result.study_duration as number,
+    streakDays: result.streak_days as number,
   };
 }
 
 /**
- * 删除所有数据（用于重置）
+ * 获取最近 N 天的统计
  */
-export async function resetDatabase(): Promise<void> {
+export async function getRecentStats(days: number = 7): Promise<DailyStats[]> {
   if (!db) throw new Error('Database not initialized');
 
-  await db.execAsync(`
-    DELETE FROM user_records;
-    DELETE FROM daily_stats;
-    DELETE FROM words;
-  `);
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    'SELECT * FROM daily_stats ORDER BY date DESC LIMIT ?',
+    [days]
+  );
+
+  return rows.map((row) => ({
+    date: row.date as string,
+    wordsLearned: row.words_learned as number,
+    wordsReviewed: row.words_reviewed as number,
+    correctRate: row.correct_rate as number,
+    studyDuration: row.study_duration as number,
+    streakDays: row.streak_days as number,
+  }));
 }
+
+// ==================== Utilities ====================
 
 /**
  * 关闭数据库连接
@@ -313,4 +461,31 @@ export async function closeDatabase(): Promise<void> {
     await db.closeAsync();
     db = null;
   }
+}
+
+/**
+ * 重置学习进度（保留单词数据）
+ */
+export async function resetProgress(): Promise<void> {
+  if (!db) throw new Error('Database not initialized');
+
+  await db.execAsync(`
+    DELETE FROM learning_progress;
+    DELETE FROM daily_stats;
+    DELETE FROM settings;
+  `);
+}
+
+/**
+ * 重置所有数据（含单词）
+ */
+export async function resetDatabase(): Promise<void> {
+  if (!db) throw new Error('Database not initialized');
+
+  await db.execAsync(`
+    DELETE FROM learning_progress;
+    DELETE FROM daily_stats;
+    DELETE FROM settings;
+    DELETE FROM words;
+  `);
 }

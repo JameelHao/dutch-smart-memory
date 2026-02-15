@@ -4,6 +4,7 @@
 export interface Word {
   id: string;
   dutch: string;
+  article?: string | null; // 冠词 de / het
   chinese: string;
   pronunciation: string;
   partOfSpeech?: string; // 词性 (noun, verb, adj, etc.)
@@ -12,6 +13,7 @@ export interface Word {
   audio?: string;
   category: WordCategory;
   level: LanguageLevel;
+  frequencyRank?: number; // 频率排名 (1 = 最常用)
   source?: string; // 来源 (pdf_import, manual, etc.)
 }
 

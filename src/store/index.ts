@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { createNewRecord, updateWordRecord } from '../services/memoryEngine';
 import { generateDailyQueue } from '../services/scheduler';
+import { saveRecord, saveSettings as dbSaveSettings } from '../services/database';
 import type { AnswerResult } from '../types';
 
 interface AppState {
@@ -116,7 +117,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     const newRecords = new Map(records);
     newRecords.set(result.wordId, updatedRecord);
-    
+
     set({
       records: newRecords,
       currentSession: {
@@ -124,6 +125,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         words: updatedWords,
       },
     });
+
+    // 异步持久化到 SQLite
+    saveRecord(updatedRecord).catch(console.warn);
   },
   
   nextWord: () => {
@@ -155,9 +159,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   updateSettings: (newSettings) => {
     const { settings } = get();
-    set({
-      settings: { ...settings, ...newSettings },
-    });
+    const merged = { ...settings, ...newSettings };
+    set({ settings: merged });
+
+    // 异步持久化到 SQLite
+    dbSaveSettings(merged).catch(console.warn);
   },
 }));
 

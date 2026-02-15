@@ -3,7 +3,8 @@
  * 荷兰语智能记忆系统
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,8 +19,17 @@ import StatsScreen from './src/screens/StatsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
 // Data and Store
-import { sampleWords } from './src/assets/words';
+import wordsData from './src/data/words.json';
 import { useAppStore } from './src/store';
+import {
+  initDatabase,
+  importWords as dbImportWords,
+  getWordCount,
+  getAllWords as dbGetAllWords,
+  getAllRecords,
+  loadSettings,
+} from './src/services/database';
+import type { Word } from './src/types';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -79,11 +89,52 @@ function MainTabs() {
 
 export default function App() {
   const loadWords = useAppStore(state => state.loadWords);
-  
-  // 在应用启动时加载单词数据
+  const loadRecords = useAppStore(state => state.loadRecords);
+  const updateSettings = useAppStore(state => state.updateSettings);
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
-    loadWords(sampleWords);
-  }, [loadWords]);
+    async function bootstrap() {
+      try {
+        // 1. 初始化数据库
+        await initDatabase();
+
+        // 2. 如果数据库为空，从 JSON 导入单词
+        const count = await getWordCount();
+        if (count === 0) {
+          await dbImportWords(wordsData as Word[]);
+        }
+
+        // 3. 从数据库加载单词和学习记录
+        const [words, records, settings] = await Promise.all([
+          dbGetAllWords(),
+          getAllRecords(),
+          loadSettings(),
+        ]);
+
+        loadWords(words);
+        loadRecords(records);
+        if (Object.keys(settings).length > 0) {
+          updateSettings(settings);
+        }
+      } catch (err) {
+        console.error('Database init failed, falling back to JSON:', err);
+        loadWords(wordsData as Word[]);
+      } finally {
+        setIsReady(true);
+      }
+    }
+
+    bootstrap();
+  }, [loadWords, loadRecords, updateSettings]);
+
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>
