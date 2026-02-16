@@ -197,18 +197,25 @@ export default function LearnScreen({ navigation }: any) {
     
     // 获取可用声音，优先选择荷兰语女声
     const voices = await Speech.getAvailableVoicesAsync();
-    const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
-    // 优先女声 (identifier 通常包含 female/Ellen/Xander 等)
-    const femaleVoice = dutchVoices.find(v => 
-      v.identifier.toLowerCase().includes('female') ||
-      v.identifier.toLowerCase().includes('ellen') ||
-      v.name.toLowerCase().includes('female') ||
-      v.name.toLowerCase().includes('ellen')
-    ) || dutchVoices.find(v => 
-      // iOS 荷兰语女声通常是 Ellen
-      !v.identifier.toLowerCase().includes('xander') &&
-      !v.name.toLowerCase().includes('xander')
+    console.log('Available Dutch voices:', voices.filter(v => v.language.startsWith('nl')).map(v => ({
+      id: v.identifier,
+      name: v.name,
+      lang: v.language
+    })));
+    
+    // iOS 荷兰语女声: Ellen (nl-NL), Claire (nl-BE)
+    // iOS 荷兰语男声: Xander (nl-NL)
+    const femaleVoice = voices.find(v => 
+      v.identifier.includes('Ellen') || v.name === 'Ellen'
+    ) || voices.find(v => 
+      v.identifier.includes('Claire') || v.name === 'Claire'
+    ) || voices.find(v => 
+      v.language.startsWith('nl') && 
+      !v.identifier.includes('Xander') && 
+      !v.name.includes('Xander')
     );
+    
+    console.log('Selected voice:', femaleVoice);
     
     // 播放荷兰语，语速稍慢
     Speech.speak(currentWord.dutch, {
