@@ -28,7 +28,7 @@ const chartConfig = {
   decimalPlaces: 0,
 };
 
-// 记忆强度曲线图（7天趋势）- Y轴范围0-100
+// 记忆强度曲线图（7天趋势）
 function MemoryStrengthChart({ data }: { data: number[] }) {
   const labels = ['6天前', '5天前', '4天前', '3天前', '2天前', '昨天', '今天'];
   const chartData = data.length > 0 ? data : [0, 0, 0, 0, 0, 0, 0];
@@ -38,27 +38,16 @@ function MemoryStrengthChart({ data }: { data: number[] }) {
       <LineChart
         data={{
           labels: labels,
-          datasets: [
-            { data: chartData },
-            // 隐藏数据集，强制 Y 轴范围 0-100
-            { data: [100], withDots: false, color: () => 'transparent' },
-          ],
+          datasets: [{ data: chartData }],
         }}
         width={screenWidth - 64}
         height={180}
-        chartConfig={{
-          ...chartConfig,
-          propsForLabels: {
-            fontSize: 11,
-          },
-        }}
+        chartConfig={chartConfig}
         bezier
         style={styles.chart}
         fromZero
-        segments={5}
         yAxisSuffix=""
         yAxisLabel=""
-        formatYLabel={(value) => Math.round(Number(value)).toString()}
       />
     </View>
   );
