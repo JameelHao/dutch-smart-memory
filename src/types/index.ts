@@ -82,6 +82,7 @@ export interface DailyStats {
   correctRate: number; // 0-1
   studyDuration: number; // 秒
   streakDays: number;
+  avgStrength: number; // 当日平均记忆强度 0-100
 }
 
 /**

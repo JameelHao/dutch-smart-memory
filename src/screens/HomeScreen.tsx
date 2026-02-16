@@ -7,14 +7,19 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button, Card, ProgressBar, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppStore, selectMasteredCount, selectTotalLearned } from '../store';
+import { useAppStore, selectMasteredCount, selectTotalLearned, selectTodayStats } from '../store';
 
 export default function HomeScreen({ navigation }: any) {
   const masteredCount = useAppStore(selectMasteredCount);
   const totalLearned = useAppStore(selectTotalLearned);
   const words = useAppStore(state => state.words);
-  
-  const todayProgress = 0.35; // TODO: 从实际数据计算
+  const settings = useAppStore(state => state.settings);
+  const todayStats = useAppStore(selectTodayStats);
+
+  // 今日进度 = 今日已学新词 / 每日目标新词数
+  const todayProgress = todayStats
+    ? Math.min(todayStats.wordsLearned / Math.max(settings.dailyNewWords, 1), 1)
+    : 0;
   
   return (
     <SafeAreaView style={styles.container}>

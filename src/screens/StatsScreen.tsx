@@ -8,7 +8,7 @@ import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Text, Card, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart, PieChart } from 'react-native-chart-kit';
-import { useAppStore, selectMasteredCount, selectTotalLearned } from '../store';
+import { useAppStore, selectMasteredCount, selectTotalLearned, selectTodayStats } from '../store';
 import { getRiskLevel } from '../types';
 
 const screenWidth = Dimensions.get('window').width;
@@ -217,17 +217,30 @@ export default function StatsScreen() {
   const masteredCount = useAppStore(selectMasteredCount);
   const totalLearned = useAppStore(selectTotalLearned);
   const words = useAppStore(state => state.words);
-  
+  const dailyStats = useAppStore(state => state.dailyStats);
+  const todayStats = useAppStore(selectTodayStats);
+
   // 计算风险分布
   const riskDistribution = { high: 0, medium: 0, low: 0, mastered: 0 };
   records.forEach(record => {
     const level = getRiskLevel(record.memoryStrength);
     riskDistribution[level]++;
   });
-  
-  // 模拟周数据
-  const weeklyData = [5, 8, 12, 6, 10, 15, 8];
-  
+
+  // 从 dailyStats 生成最近 7 天的学习单词数趋势
+  const weeklyData = React.useMemo(() => {
+    const result: number[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const stat = dailyStats.find(s => s.date === dateStr);
+      result.push(stat?.wordsReviewed ?? 0);
+    }
+    return result;
+  }, [dailyStats]);
+
   // 计算平均记忆强度
   let avgStrength = 0;
   if (records.size > 0) {
@@ -235,9 +248,28 @@ export default function StatsScreen() {
     records.forEach(r => total += r.memoryStrength);
     avgStrength = total / records.size;
   }
-  
-  // 模拟7天记忆强度趋势（实际应从历史记录计算）
-  const strengthTrend = [45, 52, 48, 55, 60, 58, Math.round(avgStrength) || 50];
+
+  // 从 dailyStats 生成 7 天记忆强度趋势
+  const strengthTrend = React.useMemo(() => {
+    const result: number[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const stat = dailyStats.find(s => s.date === dateStr);
+      if (i === 0) {
+        // 今天用实时计算的值
+        result.push(Math.round(avgStrength));
+      } else {
+        result.push(stat?.avgStrength ?? 0);
+      }
+    }
+    return result;
+  }, [dailyStats, avgStrength]);
+
+  // 连续学习天数
+  const streakDays = todayStats?.streakDays ?? (dailyStats.length > 0 ? dailyStats[0].streakDays : 0);
   
   return (
     <SafeAreaView style={styles.container}>
@@ -336,7 +368,7 @@ export default function StatsScreen() {
         {/* 连续学习天数 */}
         <Surface style={styles.streakCard} elevation={1}>
           <Text variant="displaySmall" style={styles.streakNumber}>
-            7
+            {streakDays}
           </Text>
           <Text variant="bodyMedium">连续学习天数</Text>
         </Surface>

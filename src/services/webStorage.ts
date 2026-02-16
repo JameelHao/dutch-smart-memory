@@ -4,11 +4,12 @@
  */
 
 import { Platform } from 'react-native';
-import type { UserWordRecord, UserSettings } from '../types';
+import type { UserWordRecord, UserSettings, DailyStats } from '../types';
 
 const KEYS = {
   RECORDS: 'dsm_records',
   SETTINGS: 'dsm_settings',
+  DAILY_STATS: 'dsm_daily_stats',
 } as const;
 
 const isWeb = Platform.OS === 'web';
@@ -53,5 +54,26 @@ export function webLoadSettings(): Partial<UserSettings> {
   } catch (e) {
     console.warn('webLoadSettings failed:', e);
     return {};
+  }
+}
+
+export function webSaveDailyStats(stats: DailyStats[]): void {
+  if (!isWeb) return;
+  try {
+    localStorage.setItem(KEYS.DAILY_STATS, JSON.stringify(stats));
+  } catch (e) {
+    console.warn('webSaveDailyStats failed:', e);
+  }
+}
+
+export function webLoadDailyStats(): DailyStats[] {
+  if (!isWeb) return [];
+  try {
+    const raw = localStorage.getItem(KEYS.DAILY_STATS);
+    if (!raw) return [];
+    return JSON.parse(raw) as DailyStats[];
+  } catch (e) {
+    console.warn('webLoadDailyStats failed:', e);
+    return [];
   }
 }

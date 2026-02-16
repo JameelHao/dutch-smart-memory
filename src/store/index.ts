@@ -12,8 +12,17 @@ import type {
 } from '../types';
 import { createNewRecord, updateWordRecord } from '../services/memoryEngine';
 import { generateDailyQueue } from '../services/scheduler';
-import { saveRecord, saveSettings as dbSaveSettings } from '../services/database';
-import { webSaveRecords, webSaveSettings } from '../services/webStorage';
+import {
+  saveRecord,
+  saveSettings as dbSaveSettings,
+  saveDailyStats as dbSaveDailyStats,
+  getStreakDays,
+} from '../services/database';
+import {
+  webSaveRecords,
+  webSaveSettings,
+  webSaveDailyStats,
+} from '../services/webStorage';
 import { Platform } from 'react-native';
 import type { AnswerResult } from '../types';
 
@@ -38,6 +47,7 @@ interface AppState {
   // Actions
   loadWords: (words: Word[]) => void;
   loadRecords: (records: UserWordRecord[]) => void;
+  loadDailyStats: (stats: DailyStats[]) => void;
   startSession: () => void;
   submitAnswer: (result: AnswerResult) => void;
   nextWord: () => void;
@@ -72,7 +82,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     records.forEach(r => recordMap.set(r.wordId, r));
     set({ records: recordMap });
   },
-  
+
+  loadDailyStats: (stats) => {
+    set({ dailyStats: stats });
+  },
+
   startSession: () => {
     const { words, records, settings } = get();
     const recordArray = Array.from(records.values());
@@ -148,18 +162,75 @@ export const useAppStore = create<AppState>((set, get) => ({
   nextWord: () => {
     const { currentSession, currentWordIndex } = get();
     if (!currentSession) return;
-    
+
     const nextIndex = currentWordIndex + 1;
-    
+
     if (nextIndex >= currentSession.words.length) {
-      // 会话结束
-      set({
-        currentSession: {
-          ...currentSession,
-          endTime: Date.now(),
-          completed: true,
-        },
-      });
+      // 会话结束，标记完成
+      const completedSession = {
+        ...currentSession,
+        endTime: Date.now(),
+        completed: true,
+      };
+      set({ currentSession: completedSession });
+
+      // 计算并保存今日统计
+      const { records, dailyStats } = get();
+      const today = new Date().toISOString().split('T')[0];
+      const existingToday = dailyStats.find(s => s.date === today);
+
+      const answeredWords = completedSession.words.filter(w => w.result);
+      const newWordsThisSession = answeredWords.filter(w => w.isNew).length;
+      const reviewedThisSession = answeredWords.length;
+      const correctThisSession = answeredWords.filter(w => w.result?.isCorrect).length;
+      const durationSec = Math.round(
+        (completedSession.endTime! - completedSession.startTime) / 1000
+      );
+
+      const prevLearned = existingToday?.wordsLearned ?? 0;
+      const prevReviewed = existingToday?.wordsReviewed ?? 0;
+      const prevCorrect = Math.round((existingToday?.correctRate ?? 0) * prevReviewed);
+      const prevDuration = existingToday?.studyDuration ?? 0;
+
+      const totalReviewed = prevReviewed + reviewedThisSession;
+      const totalCorrect = prevCorrect + correctThisSession;
+
+      let avgStrength = 0;
+      if (records.size > 0) {
+        let total = 0;
+        records.forEach(r => total += r.memoryStrength);
+        avgStrength = Math.round(total / records.size);
+      }
+
+      const todayStats: DailyStats = {
+        date: today,
+        wordsLearned: prevLearned + newWordsThisSession,
+        wordsReviewed: totalReviewed,
+        correctRate: totalReviewed > 0 ? totalCorrect / totalReviewed : 0,
+        studyDuration: prevDuration + durationSec,
+        streakDays: existingToday?.streakDays ?? 0,
+        avgStrength,
+      };
+
+      const updatedStats = existingToday
+        ? dailyStats.map(s => s.date === today ? todayStats : s)
+        : [todayStats, ...dailyStats];
+      set({ dailyStats: updatedStats });
+
+      if (Platform.OS === 'web') {
+        webSaveDailyStats(updatedStats);
+      } else {
+        dbSaveDailyStats(todayStats).catch(console.warn);
+        getStreakDays().then(streak => {
+          const withStreak = { ...todayStats, streakDays: streak };
+          dbSaveDailyStats(withStreak).catch(console.warn);
+          set({
+            dailyStats: get().dailyStats.map(s =>
+              s.date === today ? withStreak : s
+            ),
+          });
+        }).catch(console.warn);
+      }
     } else {
       set({ currentWordIndex: nextIndex });
     }
@@ -228,4 +299,14 @@ export const selectMasteredCount = (state: AppState) => {
 
 export const selectTotalLearned = (state: AppState) => {
   return state.records.size;
+};
+
+export const selectTodayStats = (state: AppState): DailyStats | null => {
+  const today = new Date().toISOString().split('T')[0];
+  return state.dailyStats.find(s => s.date === today) ?? null;
+};
+
+export const selectRecentStats = (state: AppState, days: number = 7): DailyStats[] => {
+  // dailyStats 按日期降序排列，取最近 N 天
+  return state.dailyStats.slice(0, days);
 };

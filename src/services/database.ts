@@ -92,9 +92,17 @@ async function createTables(): Promise<void> {
       words_reviewed INTEGER DEFAULT 0,
       correct_rate REAL DEFAULT 0,
       study_duration INTEGER DEFAULT 0,
-      streak_days INTEGER DEFAULT 0
+      streak_days INTEGER DEFAULT 0,
+      avg_strength REAL DEFAULT 0
     );
   `);
+
+  // 兼容旧版：添加 avg_strength 列（如果不存在则忽略）
+  try {
+    await db.execAsync(`ALTER TABLE daily_stats ADD COLUMN avg_strength REAL DEFAULT 0`);
+  } catch {
+    // 列已存在，忽略
+  }
 
   // 索引
   await db.execAsync(`
@@ -393,8 +401,8 @@ export async function saveDailyStats(stats: DailyStats): Promise<void> {
 
   await db.runAsync(
     `INSERT OR REPLACE INTO daily_stats
-     (date, words_learned, words_reviewed, correct_rate, study_duration, streak_days)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+     (date, words_learned, words_reviewed, correct_rate, study_duration, streak_days, avg_strength)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       stats.date,
       stats.wordsLearned,
@@ -402,6 +410,7 @@ export async function saveDailyStats(stats: DailyStats): Promise<void> {
       stats.correctRate,
       stats.studyDuration,
       stats.streakDays,
+      stats.avgStrength,
     ]
   );
 }
@@ -427,6 +436,7 @@ export async function getTodayStats(): Promise<DailyStats | null> {
     correctRate: result.correct_rate as number,
     studyDuration: result.study_duration as number,
     streakDays: result.streak_days as number,
+    avgStrength: (result.avg_strength as number) || 0,
   };
 }
 
@@ -448,7 +458,41 @@ export async function getRecentStats(days: number = 7): Promise<DailyStats[]> {
     correctRate: row.correct_rate as number,
     studyDuration: row.study_duration as number,
     streakDays: row.streak_days as number,
+    avgStrength: (row.avg_strength as number) || 0,
   }));
+}
+
+/**
+ * 计算连续学习天数
+ */
+export async function getStreakDays(): Promise<number> {
+  if (!db) throw new Error('Database not initialized');
+
+  const rows = await db.getAllAsync<{ date: string }>(
+    'SELECT date FROM daily_stats WHERE words_reviewed > 0 ORDER BY date DESC LIMIT 60'
+  );
+
+  if (rows.length === 0) return 0;
+
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 60; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(checkDate.getDate() - i);
+    const dateStr = checkDate.toISOString().split('T')[0];
+
+    if (rows.some(r => r.date === dateStr)) {
+      streak++;
+    } else {
+      // 如果是今天没有记录，继续检查昨天（今天还没学也算连续）
+      if (i === 0) continue;
+      break;
+    }
+  }
+
+  return streak;
 }
 
 // ==================== Utilities ====================

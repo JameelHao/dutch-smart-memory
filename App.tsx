@@ -30,9 +30,10 @@ import {
   getAllWords as dbGetAllWords,
   getAllRecords,
   loadSettings,
+  getRecentStats,
 } from './src/services/database';
 import type { Word } from './src/types';
-import { webLoadRecords, webLoadSettings } from './src/services/webStorage';
+import { webLoadRecords, webLoadSettings, webLoadDailyStats } from './src/services/webStorage';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -104,6 +105,7 @@ function MainTabs() {
 export default function App() {
   const loadWords = useAppStore(state => state.loadWords);
   const loadRecords = useAppStore(state => state.loadRecords);
+  const loadDailyStats = useAppStore(state => state.loadDailyStats);
   const updateSettings = useAppStore(state => state.updateSettings);
   const [isReady, setIsReady] = useState(false);
 
@@ -120,6 +122,10 @@ export default function App() {
         if (Object.keys(savedSettings).length > 0) {
           updateSettings(savedSettings);
         }
+        const savedStats = webLoadDailyStats();
+        if (savedStats.length > 0) {
+          loadDailyStats(savedStats);
+        }
         setIsReady(true);
         return;
       }
@@ -134,17 +140,21 @@ export default function App() {
           await dbImportWords(wordsData as Word[]);
         }
 
-        // 3. 从数据库加载单词和学习记录
-        const [words, records, settings] = await Promise.all([
+        // 3. 从数据库加载单词、学习记录和每日统计
+        const [words, records, settings, stats] = await Promise.all([
           dbGetAllWords(),
           getAllRecords(),
           loadSettings(),
+          getRecentStats(30),
         ]);
 
         loadWords(words);
         loadRecords(records);
         if (Object.keys(settings).length > 0) {
           updateSettings(settings);
+        }
+        if (stats.length > 0) {
+          loadDailyStats(stats);
         }
       } catch (err) {
         console.error('Database init failed, falling back to JSON:', err);
@@ -155,7 +165,7 @@ export default function App() {
     }
 
     bootstrap();
-  }, [loadWords, loadRecords, updateSettings]);
+  }, [loadWords, loadRecords, loadDailyStats, updateSettings]);
 
   if (!isReady) {
     return (
