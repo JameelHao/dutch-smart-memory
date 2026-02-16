@@ -31,22 +31,31 @@ const chartConfig = {
 // 记忆强度曲线图（7天趋势）
 function MemoryStrengthChart({ data }: { data: number[] }) {
   const labels = ['6天前', '5天前', '4天前', '3天前', '2天前', '昨天', '今天'];
+  const chartData = data.length > 0 ? data : [0, 0, 0, 0, 0, 0, 0];
+  const maxValue = Math.max(...chartData, 10); // 至少显示到10，避免刻度太密集
   
   return (
     <View style={styles.chartContainer}>
       <LineChart
         data={{
           labels: labels,
-          datasets: [{ data: data.length > 0 ? data : [0, 0, 0, 0, 0, 0, 0] }],
+          datasets: [{ data: chartData }],
         }}
         width={screenWidth - 64}
         height={180}
-        chartConfig={chartConfig}
+        chartConfig={{
+          ...chartConfig,
+          propsForLabels: {
+            fontSize: 11,
+          },
+        }}
         bezier
         style={styles.chart}
         fromZero
+        segments={5}
         yAxisSuffix=""
         yAxisLabel=""
+        formatYLabel={(value) => Math.round(Number(value)).toString()}
       />
     </View>
   );
