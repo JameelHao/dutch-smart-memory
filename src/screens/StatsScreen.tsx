@@ -28,18 +28,21 @@ const chartConfig = {
   decimalPlaces: 0,
 };
 
-// 记忆强度曲线图（7天趋势）
+// 记忆强度曲线图（7天趋势）- Y轴范围0-100
 function MemoryStrengthChart({ data }: { data: number[] }) {
   const labels = ['6天前', '5天前', '4天前', '3天前', '2天前', '昨天', '今天'];
   const chartData = data.length > 0 ? data : [0, 0, 0, 0, 0, 0, 0];
-  const maxValue = Math.max(...chartData, 10); // 至少显示到10，避免刻度太密集
   
   return (
     <View style={styles.chartContainer}>
       <LineChart
         data={{
           labels: labels,
-          datasets: [{ data: chartData }],
+          datasets: [
+            { data: chartData },
+            // 隐藏数据集，强制 Y 轴范围 0-100
+            { data: [100], withDots: false, color: () => 'transparent' },
+          ],
         }}
         width={screenWidth - 64}
         height={180}
