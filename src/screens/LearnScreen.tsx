@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { Text, Button, Card, IconButton, ProgressBar } from 'react-native-paper';
 import * as Speech from 'expo-speech';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -188,6 +188,14 @@ export default function LearnScreen({ navigation }: any) {
     nextWord();
   };
   
+  // 显示可用声音（调试用）
+  const showAvailableVoices = useCallback(async () => {
+    const voices = await Speech.getAvailableVoicesAsync();
+    const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
+    const voiceList = dutchVoices.map(v => `${v.name} (${v.language})`).join('\n') || '没有荷兰语声音';
+    Alert.alert('可用荷兰语声音', voiceList);
+  }, []);
+
   // 播放荷兰语发音
   const speakDutch = useCallback(async () => {
     if (!currentWord?.dutch) return;
@@ -198,11 +206,9 @@ export default function LearnScreen({ navigation }: any) {
     // 获取可用声音，优先选择荷兰语女声
     const voices = await Speech.getAvailableVoicesAsync();
     const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
-    console.log('All Dutch voices:', JSON.stringify(dutchVoices, null, 2));
     
     // iOS 荷兰语女声: Ellen (nl-NL), Claire (nl-BE)
     // iOS 荷兰语男声: Xander (nl-NL)
-    // identifier 格式: com.apple.voice.compact.nl-NL.Ellen 或 com.apple.ttsbundle.Ellen-compact
     const femaleVoice = dutchVoices.find(v => 
       v.name.toLowerCase() === 'ellen' || 
       v.identifier.toLowerCase().includes('ellen')
@@ -216,8 +222,6 @@ export default function LearnScreen({ navigation }: any) {
       !v.name.toLowerCase().includes('xander') && 
       !v.identifier.toLowerCase().includes('xander')
     );
-    
-    console.log('Selected voice:', fallbackVoice ? JSON.stringify(fallbackVoice) : 'NONE - using default');
     
     // 构建语音选项
     const speechOptions: Speech.SpeechOptions = {
@@ -320,6 +324,7 @@ export default function LearnScreen({ navigation }: any) {
               icon="volume-high"
               size={32}
               onPress={speakDutch}
+              onLongPress={showAvailableVoices}
               style={styles.speakButton}
               iconColor="#FFFFFF"
               containerColor="#1E88E5"
