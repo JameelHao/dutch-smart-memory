@@ -195,11 +195,27 @@ export default function LearnScreen({ navigation }: any) {
     // 停止当前播放
     await Speech.stop();
     
-    // 播放荷兰语，优先女声，语速稍慢
+    // 获取可用声音，优先选择荷兰语女声
+    const voices = await Speech.getAvailableVoicesAsync();
+    const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
+    // 优先女声 (identifier 通常包含 female/Ellen/Xander 等)
+    const femaleVoice = dutchVoices.find(v => 
+      v.identifier.toLowerCase().includes('female') ||
+      v.identifier.toLowerCase().includes('ellen') ||
+      v.name.toLowerCase().includes('female') ||
+      v.name.toLowerCase().includes('ellen')
+    ) || dutchVoices.find(v => 
+      // iOS 荷兰语女声通常是 Ellen
+      !v.identifier.toLowerCase().includes('xander') &&
+      !v.name.toLowerCase().includes('xander')
+    );
+    
+    // 播放荷兰语，语速稍慢
     Speech.speak(currentWord.dutch, {
       language: 'nl-NL',
+      voice: femaleVoice?.identifier,
       rate: 0.85,
-      pitch: 1.0,
+      pitch: 1.05,
     });
   }, [currentWord?.dutch]);
   
