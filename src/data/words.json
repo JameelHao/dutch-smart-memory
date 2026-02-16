@@ -21,7 +21,8 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 2
+    "frequencyRank": 2,
+    "nounInfo": { "article": "het", "plural": "aantallen" }
   },
   {
     "id": "3",
@@ -386,14 +387,15 @@
   {
     "id": "33",
     "dutch": "boek",
-    "article": "de",
+    "article": "het",
     "chinese": "书",
     "pronunciation": "",
     "example": "",
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 33
+    "frequencyRank": 33,
+    "nounInfo": { "article": "het", "plural": "boeken" }
   },
   {
     "id": "34",
@@ -957,7 +959,12 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 83
+    "frequencyRank": 83,
+    "conjugation": {
+      "present": { "ik": "ga", "jij": "gaat", "hij": "gaat", "wij": "gaan", "jullie": "gaan", "zij": "gaan" },
+      "past": { "ik": "ging", "jij": "ging", "hij": "ging", "wij": "gingen", "jullie": "gingen", "zij": "gingen" },
+      "perfect": { "auxiliary": "zijn", "pastParticiple": "gegaan" }
+    }
   },
   {
     "id": "81",
@@ -1209,7 +1216,12 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 104
+    "frequencyRank": 104,
+    "conjugation": {
+      "present": { "ik": "heb", "jij": "hebt", "hij": "heeft", "wij": "hebben", "jullie": "hebben", "zij": "hebben" },
+      "past": { "ik": "had", "jij": "had", "hij": "had", "wij": "hadden", "jullie": "hadden", "zij": "hadden" },
+      "perfect": { "auxiliary": "hebben", "pastParticiple": "gehad" }
+    }
   },
   {
     "id": "102",
@@ -1389,7 +1401,8 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 119
+    "frequencyRank": 119,
+    "nounInfo": { "article": "het", "plural": "huizen" }
   },
   {
     "id": "117",
@@ -1641,7 +1654,12 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 140
+    "frequencyRank": 140,
+    "conjugation": {
+      "present": { "ik": "kom", "jij": "komt", "hij": "komt", "wij": "komen", "jullie": "komen", "zij": "komen" },
+      "past": { "ik": "kwam", "jij": "kwam", "hij": "kwam", "wij": "kwamen", "jullie": "kwamen", "zij": "kwamen" },
+      "perfect": { "auxiliary": "zijn", "pastParticiple": "gekomen" }
+    }
   },
   {
     "id": "138",
@@ -1857,7 +1875,8 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 159
+    "frequencyRank": 159,
+    "nounInfo": { "article": "de", "plural": "mannen" }
   },
   {
     "id": "156",
@@ -3021,7 +3040,8 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 256
+    "frequencyRank": 256,
+    "nounInfo": { "article": "de", "plural": "vrouwen" }
   },
   {
     "id": "253",
@@ -3225,7 +3245,12 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 274
+    "frequencyRank": 274,
+    "conjugation": {
+      "present": { "ik": "werk", "jij": "werkt", "hij": "werkt", "wij": "werken", "jullie": "werken", "zij": "werken" },
+      "past": { "ik": "werkte", "jij": "werkte", "hij": "werkte", "wij": "werkten", "jullie": "werkten", "zij": "werkten" },
+      "perfect": { "auxiliary": "hebben", "pastParticiple": "gewerkt" }
+    }
   },
   {
     "id": "270",
@@ -3417,7 +3442,12 @@
     "exampleTranslation": "",
     "category": "other",
     "level": "A1",
-    "frequencyRank": 290
+    "frequencyRank": 290,
+    "conjugation": {
+      "present": { "ik": "ben", "jij": "bent", "hij": "is", "wij": "zijn", "jullie": "zijn", "zij": "zijn" },
+      "past": { "ik": "was", "jij": "was", "hij": "was", "wij": "waren", "jullie": "waren", "zij": "waren" },
+      "perfect": { "auxiliary": "zijn", "pastParticiple": "geweest" }
+    }
   },
   {
     "id": "286",

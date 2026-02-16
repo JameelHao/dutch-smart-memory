@@ -1,4 +1,33 @@
 /**
+ * 动词变位
+ */
+export interface ConjugationPersons {
+  ik: string;
+  jij: string;       // jij/je
+  hij: string;       // hij/zij/het
+  wij: string;       // wij/we
+  jullie: string;
+  zij: string;       // zij (plural)
+}
+
+export interface VerbConjugation {
+  present: ConjugationPersons;    // tegenwoordige tijd
+  past: ConjugationPersons;       // verleden tijd
+  perfect: {
+    auxiliary: 'hebben' | 'zijn';
+    pastParticiple: string;       // voltooid deelwoord
+  };
+}
+
+/**
+ * 名词信息
+ */
+export interface NounInfo {
+  article: 'de' | 'het';
+  plural: string;              // meervoud
+}
+
+/**
  * 单词数据模型
  */
 export interface Word {
@@ -15,6 +44,8 @@ export interface Word {
   level: LanguageLevel;
   frequencyRank?: number; // 频率排名 (1 = 最常用)
   source?: string; // 来源 (pdf_import, manual, etc.)
+  conjugation?: VerbConjugation;
+  nounInfo?: NounInfo;
 }
 
 export type LanguageLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';

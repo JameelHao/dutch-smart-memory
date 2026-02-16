@@ -21,6 +21,8 @@ import type {
   WordCategory,
   LanguageLevel,
   WordStatus,
+  VerbConjugation,
+  NounInfo,
 } from '../types';
 
 const DB_NAME = 'dutch_smart_memory.db';
@@ -104,6 +106,18 @@ async function createTables(): Promise<void> {
     // 列已存在，忽略
   }
 
+  // 添加动词变位和名词信息列
+  try {
+    await db.execAsync(`ALTER TABLE words ADD COLUMN conjugation_json TEXT`);
+  } catch {
+    // 列已存在，忽略
+  }
+  try {
+    await db.execAsync(`ALTER TABLE words ADD COLUMN noun_info_json TEXT`);
+  } catch {
+    // 列已存在，忽略
+  }
+
   // 索引
   await db.execAsync(`
     CREATE INDEX IF NOT EXISTS idx_words_level ON words(level);
@@ -134,8 +148,9 @@ export async function importWords(words: Word[]): Promise<number> {
         await db!.runAsync(
           `INSERT OR REPLACE INTO words
            (id, dutch, article, chinese, pronunciation, part_of_speech,
-            example, example_translation, audio_url, category, level, frequency_rank, source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            example, example_translation, audio_url, category, level, frequency_rank, source,
+            conjugation_json, noun_info_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             word.id,
             word.dutch,
@@ -150,6 +165,8 @@ export async function importWords(words: Word[]): Promise<number> {
             word.level,
             word.frequencyRank ?? null,
             word.source || 'pdf_import',
+            word.conjugation ? JSON.stringify(word.conjugation) : null,
+            word.nounInfo ? JSON.stringify(word.nounInfo) : null,
           ]
         );
         imported++;
@@ -201,6 +218,15 @@ export async function getWordCount(): Promise<number> {
 }
 
 function rowToWord(row: Record<string, unknown>): Word {
+  let conjugation: VerbConjugation | undefined;
+  if (row.conjugation_json) {
+    try { conjugation = JSON.parse(row.conjugation_json as string); } catch { /* ignore */ }
+  }
+  let nounInfo: NounInfo | undefined;
+  if (row.noun_info_json) {
+    try { nounInfo = JSON.parse(row.noun_info_json as string); } catch { /* ignore */ }
+  }
+
   return {
     id: row.id as string,
     dutch: row.dutch as string,
@@ -215,6 +241,8 @@ function rowToWord(row: Record<string, unknown>): Word {
     level: ((row.level as string) || 'A1') as LanguageLevel,
     frequencyRank: row.frequency_rank as number | undefined,
     source: row.source as string | undefined,
+    conjugation,
+    nounInfo,
   };
 }
 

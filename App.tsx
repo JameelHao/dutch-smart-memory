@@ -18,6 +18,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import LearnScreen from './src/screens/LearnScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import WordDetailScreen from './src/screens/WordDetailScreen';
 
 // Data and Store
 import wordsData from './src/data/words.json';
@@ -181,7 +182,7 @@ export default function App() {
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Main" component={MainTabs} />
-            {/* 可以添加更多全屏页面 */}
+            <Stack.Screen name="WordDetail" component={WordDetailScreen} />
           </Stack.Navigator>
           <StatusBar style="auto" />
         </NavigationContainer>

@@ -364,6 +364,15 @@ export default function LearnScreen({ navigation }: any) {
                   {currentWord.example}
                 </Text>
               )}
+              <Button
+                mode="text"
+                compact
+                onPress={() => navigation.navigate('WordDetail', { wordId: currentWord.id })}
+                style={styles.detailButton}
+                labelStyle={styles.detailButtonLabel}
+              >
+                查看详情
+              </Button>
             </>
           )}
         </Card.Content>
@@ -447,6 +456,13 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  detailButton: {
+    marginTop: 8,
+  },
+  detailButtonLabel: {
+    fontSize: 13,
+    color: '#1E88E5',
   },
   answerSection: {
     flex: 1,
