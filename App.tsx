@@ -11,6 +11,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Screens (to be implemented)
 import HomeScreen from './src/screens/HomeScreen';
@@ -61,7 +62,9 @@ function MainTabs() {
         component={HomeScreen}
         options={{
           tabBarLabel: '首页',
-          // tabBarIcon: 需要添加图标
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home-variant" color={color} size={size} />
+          ),
         }}
       />
       <Tab.Screen
@@ -69,6 +72,9 @@ function MainTabs() {
         component={LearnScreen}
         options={{
           tabBarLabel: '学习',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="book-open-page-variant" color={color} size={size} />
+          ),
         }}
       />
       <Tab.Screen
@@ -76,6 +82,9 @@ function MainTabs() {
         component={StatsScreen}
         options={{
           tabBarLabel: '统计',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="chart-line" color={color} size={size} />
+          ),
         }}
       />
       <Tab.Screen
@@ -83,6 +92,9 @@ function MainTabs() {
         component={SettingsScreen}
         options={{
           tabBarLabel: '设置',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cog-outline" color={color} size={size} />
+          ),
         }}
       />
     </Tab.Navigator>

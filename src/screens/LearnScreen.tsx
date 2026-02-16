@@ -199,42 +199,58 @@ export default function LearnScreen({ navigation }: any) {
   // 播放荷兰语发音
   const speakDutch = useCallback(async () => {
     if (!currentWord?.dutch) return;
-    
+
     // 停止当前播放
     await Speech.stop();
-    
-    // 获取可用声音，优先选择荷兰语女声
-    const voices = await Speech.getAvailableVoicesAsync();
-    const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
-    
-    // iOS 荷兰语女声: Ellen (nl-NL), Claire (nl-BE)
-    // iOS 荷兰语男声: Xander (nl-NL)
-    const femaleVoice = dutchVoices.find(v => 
-      v.name.toLowerCase() === 'ellen' || 
-      v.identifier.toLowerCase().includes('ellen')
-    ) || dutchVoices.find(v => 
-      v.name.toLowerCase() === 'claire' || 
-      v.identifier.toLowerCase().includes('claire')
-    );
-    
-    // 排除男声 Xander，选任意其他荷兰语声音
-    const fallbackVoice = femaleVoice || dutchVoices.find(v => 
-      !v.name.toLowerCase().includes('xander') && 
-      !v.identifier.toLowerCase().includes('xander')
-    );
-    
-    // 构建语音选项
-    const speechOptions: Speech.SpeechOptions = {
-      language: 'nl-NL',
-      rate: 0.85,
-      pitch: fallbackVoice ? 1.05 : 1.3, // 没女声时提高音调
-    };
-    
-    // 只有找到特定声音时才设置 voice 参数
-    if (fallbackVoice) {
-      speechOptions.voice = fallbackVoice.identifier;
+
+    // 获取可用声音（iOS 首次调用可能返回空数组，重试一次）
+    let voices = await Speech.getAvailableVoicesAsync();
+    if (voices.length === 0) {
+      await new Promise(r => setTimeout(r, 200));
+      voices = await Speech.getAvailableVoicesAsync();
     }
-    
+
+    const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
+
+    // 已知 iOS 女声名（优先级从高到低）
+    const femaleNames = ['ellen', 'claire', 'lotte', 'fleur'];
+    // 已知 iOS 男声名
+    const maleNames = ['xander', 'frank'];
+
+    // 1. 按优先级查找已知女声
+    let selectedVoice: Speech.Voice | undefined;
+    for (const name of femaleNames) {
+      selectedVoice = dutchVoices.find(v =>
+        v.name.toLowerCase().includes(name) ||
+        v.identifier.toLowerCase().includes(name)
+      );
+      if (selectedVoice) break;
+    }
+
+    // 2. 如果没找到已知女声，排除已知男声，取第一个未知声音
+    if (!selectedVoice) {
+      selectedVoice = dutchVoices.find(v =>
+        !maleNames.some(m =>
+          v.name.toLowerCase().includes(m) ||
+          v.identifier.toLowerCase().includes(m)
+        )
+      );
+    }
+
+    // 构建语音选项
+    // 注意：iOS 上同时设置 voice 和 language 可能冲突，
+    // 找到具体声音时只设 voice，否则只设 language
+    const speechOptions: Speech.SpeechOptions = {
+      rate: 0.85,
+      pitch: 1.05,
+    };
+
+    if (selectedVoice) {
+      speechOptions.voice = selectedVoice.identifier;
+    } else {
+      speechOptions.language = 'nl-NL';
+    }
+
     Speech.speak(currentWord.dutch, speechOptions);
   }, [currentWord?.dutch]);
   
