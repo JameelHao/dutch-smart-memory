@@ -197,33 +197,41 @@ export default function LearnScreen({ navigation }: any) {
     
     // 获取可用声音，优先选择荷兰语女声
     const voices = await Speech.getAvailableVoicesAsync();
-    console.log('Available Dutch voices:', voices.filter(v => v.language.startsWith('nl')).map(v => ({
-      id: v.identifier,
-      name: v.name,
-      lang: v.language
-    })));
+    const dutchVoices = voices.filter(v => v.language.startsWith('nl'));
+    console.log('All Dutch voices:', JSON.stringify(dutchVoices, null, 2));
     
     // iOS 荷兰语女声: Ellen (nl-NL), Claire (nl-BE)
     // iOS 荷兰语男声: Xander (nl-NL)
-    const femaleVoice = voices.find(v => 
-      v.identifier.includes('Ellen') || v.name === 'Ellen'
-    ) || voices.find(v => 
-      v.identifier.includes('Claire') || v.name === 'Claire'
-    ) || voices.find(v => 
-      v.language.startsWith('nl') && 
-      !v.identifier.includes('Xander') && 
-      !v.name.includes('Xander')
+    // identifier 格式: com.apple.voice.compact.nl-NL.Ellen 或 com.apple.ttsbundle.Ellen-compact
+    const femaleVoice = dutchVoices.find(v => 
+      v.name.toLowerCase() === 'ellen' || 
+      v.identifier.toLowerCase().includes('ellen')
+    ) || dutchVoices.find(v => 
+      v.name.toLowerCase() === 'claire' || 
+      v.identifier.toLowerCase().includes('claire')
     );
     
-    console.log('Selected voice:', femaleVoice);
+    // 排除男声 Xander，选任意其他荷兰语声音
+    const fallbackVoice = femaleVoice || dutchVoices.find(v => 
+      !v.name.toLowerCase().includes('xander') && 
+      !v.identifier.toLowerCase().includes('xander')
+    );
     
-    // 播放荷兰语，语速稍慢
-    Speech.speak(currentWord.dutch, {
+    console.log('Selected voice:', fallbackVoice ? JSON.stringify(fallbackVoice) : 'NONE - using default');
+    
+    // 构建语音选项
+    const speechOptions: Speech.SpeechOptions = {
       language: 'nl-NL',
-      voice: femaleVoice?.identifier,
       rate: 0.85,
-      pitch: 1.05,
-    });
+      pitch: fallbackVoice ? 1.05 : 1.3, // 没女声时提高音调
+    };
+    
+    // 只有找到特定声音时才设置 voice 参数
+    if (fallbackVoice) {
+      speechOptions.voice = fallbackVoice.identifier;
+    }
+    
+    Speech.speak(currentWord.dutch, speechOptions);
   }, [currentWord?.dutch]);
   
   // 无会话时显示开始按钮
