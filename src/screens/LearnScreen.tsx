@@ -287,10 +287,12 @@ export default function LearnScreen({ navigation }: any) {
             </Text>
             <IconButton
               icon="volume-high"
-              size={28}
+              size={32}
               onPress={speakDutch}
               style={styles.speakButton}
-              iconColor="#1E88E5"
+              iconColor="#FFFFFF"
+              containerColor="#1E88E5"
+              mode="contained"
             />
           </View>
           
